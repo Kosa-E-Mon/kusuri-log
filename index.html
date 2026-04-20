@@ -1,0 +1,2253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>くすりログ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+:root{
+  --bg:#0F172A;--bg2:#1E293B;--card:#FFFFFF;--card2:#F8FAFF;
+  --primary:#0EA5E9;--primary-d:#0284C7;--primary-dim:#E0F2FE;
+  --teal:#0D9488;--teal-dim:#CCFBF1;
+  --amber:#F59E0B;--amber-dim:#FEF3C7;
+  --rose:#F43F5E;--rose-dim:#FFE4E6;
+  --violet:#7C3AED;--violet-dim:#EDE9FE;
+  --green:#16A34A;--green-dim:#DCFCE7;
+  --text:#0F172A;--text2:#64748B;--text3:#94A3B8;
+  --border:#E2E8F0;
+  --shadow:0 1px 8px rgba(15,23,42,.08);
+  --shadow-md:0 4px 20px rgba(15,23,42,.12);
+  --shadow-lg:0 8px 40px rgba(15,23,42,.20);
+  --r:18px;--rs:12px;--nav:68px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;max-width:430px;margin:0 auto;overflow-x:hidden;}
+::-webkit-scrollbar{width:0;}
+.page{display:none;min-height:100vh;padding-bottom:calc(var(--nav) + var(--safe-b) + 16px);}
+.page.active{display:block;animation:fi .18s ease;}
+@keyframes fi{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+/* ── HEADER ── */
+.ph{background:var(--bg);padding:18px 20px 14px;position:sticky;top:0;z-index:60;}
+.ph h1{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px;}
+.ph .sub{font-size:12px;color:var(--text3);margin-top:2px;}
+
+/* ── NAV (5 tabs) ── */
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:430px;height:calc(var(--nav) + var(--safe-b));
+  padding-bottom:var(--safe-b);background:rgba(15,23,42,.97);
+  backdrop-filter:blur(12px);display:flex;
+  border-top:1px solid rgba(255,255,255,.08);z-index:100;}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.32);
+  font-size:9px;font-family:inherit;font-weight:700;letter-spacing:.01em;transition:color .2s;}
+.nb.active{color:var(--primary);}
+.nb svg{width:20px;height:20px;}
+
+/* ── TODAY ── */
+.today-hero{margin:14px 16px;border-radius:var(--r);
+  background:linear-gradient(135deg,var(--primary-d),var(--primary) 60%,#38BDF8);
+  padding:20px 22px;color:white;display:flex;justify-content:space-between;
+  align-items:center;position:relative;overflow:hidden;}
+.today-hero::before{content:'';position:absolute;right:-20px;top:-20px;
+  width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.08);}
+.th-lbl{font-size:11px;opacity:.8;letter-spacing:.06em;text-transform:uppercase;}
+.th-cnt{font-size:42px;font-weight:900;line-height:1.1;font-family:'DM Mono',monospace;}
+.th-of{font-size:13px;opacity:.75;}
+.th-ring{width:72px;height:72px;z-index:1;flex-shrink:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;background:rgba(255,255,255,.15);
+  border-radius:50%;border:2px solid rgba(255,255,255,.3);}
+.th-pct{font-size:21px;font-weight:900;font-family:'DM Mono',monospace;}
+.th-pct-l{font-size:10px;opacity:.75;}
+
+.sec-h{margin:14px 16px 7px;display:flex;align-items:center;gap:8px;}
+.sec-bar{width:3px;height:15px;background:var(--primary);border-radius:2px;flex-shrink:0;}
+.sec-txt{font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;}
+.sec-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;
+  background:var(--rose-dim);color:var(--rose);margin-left:auto;}
+
+/* ── DOSE CARD ── */
+.dose-card{background:var(--card);border-radius:var(--rs);padding:12px 14px;
+  margin:0 16px 8px;display:flex;align-items:center;gap:11px;
+  box-shadow:var(--shadow);transition:opacity .25s;}
+.dose-card.taken{opacity:.45;}
+.dose-card.taken .dname{text-decoration:line-through;color:var(--text2);}
+.d-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;
+  justify-content:center;font-size:19px;flex-shrink:0;}
+.d-icon.medicine{background:var(--primary-dim);}
+.d-icon.supplement{background:var(--teal-dim);}
+.dinfo{flex:1;min-width:0;}
+.dname{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ddet{font-size:12px;color:var(--text2);margin-top:2px;}
+.dstock-txt{font-size:11px;margin-top:2px;}
+.dstock-txt.low{color:var(--rose);}
+.dstock-txt.ok{color:var(--teal);}
+.dcheck{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);
+  flex-shrink:0;background:none;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:14px;font-weight:900;color:transparent;transition:all .2s;}
+.dcheck.taken{background:var(--teal);border-color:var(--teal);color:white;}
+.dcheck.overdue{border-color:var(--rose);color:var(--rose);}
+
+/* ── SCAN ── */
+.scan-content{padding:18px 16px;display:flex;flex-direction:column;align-items:center;gap:16px;}
+.nfc-area{width:100%;background:var(--bg2);border-radius:var(--r);padding:24px 20px;
+  display:flex;flex-direction:column;align-items:center;gap:14px;}
+.nfc-ring{width:154px;height:154px;border-radius:50%;
+  background:linear-gradient(135deg,var(--primary-d),var(--primary));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:9px;color:white;cursor:pointer;border:none;font-family:inherit;
+  font-size:14px;font-weight:700;box-shadow:0 8px 32px rgba(14,165,233,.35);
+  transition:transform .15s;position:relative;overflow:hidden;}
+.nfc-ring:active{transform:scale(.95);}
+.nfc-ring.scanning::before,.nfc-ring.scanning::after{content:'';position:absolute;
+  border-radius:50%;border:2px solid rgba(255,255,255,.35);animation:rip 2s infinite ease-out;}
+.nfc-ring.scanning::after{animation-delay:.7s;}
+@keyframes rip{0%{width:40%;height:40%;opacity:.8;top:30%;left:30%;}
+  100%{width:160%;height:160%;opacity:0;top:-30%;left:-30%;}}
+.nfc-st{font-size:13px;color:var(--text3);text-align:center;}
+.scan-res{width:100%;border-radius:var(--rs);padding:15px;display:none;flex-direction:column;gap:9px;}
+.scan-res.ok{background:var(--teal-dim);display:flex;}
+.scan-res.ng{background:var(--rose-dim);display:flex;}
+.scan-res.inf{background:var(--primary-dim);display:flex;}
+.sr-top{display:flex;align-items:center;gap:10px;}
+.sr-icon{font-size:22px;}
+.sr-txt{flex:1;}
+.sr-title{font-size:15px;font-weight:700;}
+.sr-det{font-size:12px;color:var(--text2);margin-top:2px;}
+.sr-undo{width:100%;padding:10px;border-radius:var(--rs);border:1.5px solid rgba(0,0,0,.1);
+  background:white;cursor:pointer;font-family:inherit;font-size:13px;
+  font-weight:700;color:var(--rose);}
+
+/* ── MEDS ── */
+.mlist{padding:0 16px 8px;display:flex;flex-direction:column;gap:11px;}
+.med-card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-md);overflow:hidden;}
+.mc-main{padding:15px;display:flex;gap:11px;align-items:flex-start;}
+.mc-icon{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;
+  justify-content:center;font-size:22px;flex-shrink:0;}
+.mc-icon.medicine{background:var(--primary-dim);}
+.mc-icon.supplement{background:var(--teal-dim);}
+.mc-body{flex:1;min-width:0;}
+.mc-name{font-size:15px;font-weight:800;}
+.mc-tags{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 3px;}
+.tag{font-size:10px;font-weight:800;padding:2px 7px;border-radius:100px;}
+.tag-med{background:var(--primary-dim);color:var(--primary-d);}
+.tag-sup{background:var(--teal-dim);color:var(--teal);}
+.tag-tim{background:#F1F5F9;color:var(--text2);}
+.tag-nfc{background:var(--violet-dim);color:var(--violet);}
+.mc-note{font-size:12px;color:var(--text2);}
+.mc-btns{display:flex;flex-direction:column;gap:5px;flex-shrink:0;}
+.ib{width:31px;height:31px;border-radius:8px;border:none;background:var(--card2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);}
+.ib:hover{background:var(--primary-dim);color:var(--primary-d);}
+.ib.del:hover{background:var(--rose-dim);color:var(--rose);}
+.mc-stock{border-top:1px solid var(--border);padding:11px 15px;background:var(--card2);}
+.ms-row{display:flex;align-items:center;margin-bottom:5px;}
+.ms-lbl{font-size:12px;color:var(--text2);flex:1;}
+.ms-val{font-size:13px;font-weight:800;}
+.ms-val.danger{color:var(--rose);}
+.ms-ro{font-size:11px;color:var(--amber);margin-left:7px;font-weight:700;}
+.pbar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:9px;}
+.pfill{height:100%;border-radius:2px;transition:width .5s;}
+.ms-btns{display:flex;gap:7px;}
+.ms-btn{flex:1;padding:8px 0;border-radius:var(--rs);border:1.5px solid var(--border);
+  background:var(--card);cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:var(--text2);}
+.ms-btn:active{opacity:.7;}
+.ms-btn.buy{background:var(--teal-dim);color:var(--teal);border-color:var(--teal);}
+
+.fab{position:fixed;bottom:calc(var(--nav) + var(--safe-b) + 14px);
+  right:max(14px,calc(50vw - 201px));width:52px;height:52px;border-radius:50%;
+  background:linear-gradient(135deg,var(--primary-d),var(--primary));color:white;
+  border:none;cursor:pointer;display:none;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px rgba(14,165,233,.45);z-index:90;font-size:26px;}
+
+/* ── CALENDAR ── */
+.cal-header{padding:14px 16px 8px;display:flex;align-items:center;gap:10px;}
+.cal-nav-btn{width:36px;height:36px;border-radius:50%;border:none;background:var(--bg2);
+  color:white;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+.cal-month{flex:1;text-align:center;font-size:16px;font-weight:800;color:white;}
+.cal-filter{display:flex;gap:6px;padding:0 16px 12px;}
+.cal-f{flex:1;padding:8px 0;border-radius:var(--rs);border:1.5px solid rgba(255,255,255,.15);
+  background:transparent;color:rgba(255,255,255,.5);cursor:pointer;
+  font-family:inherit;font-size:11px;font-weight:700;text-align:center;transition:all .15s;}
+.cal-f.on{background:var(--primary);border-color:var(--primary);color:white;}
+.cal-grid-wrap{padding:0 16px 8px;}
+.cal-grid{background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-md);}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);
+  background:var(--card2);border-bottom:1px solid var(--border);}
+.cal-dow span{text-align:center;padding:8px 0;font-size:11px;font-weight:800;color:var(--text2);}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;cursor:pointer;gap:2px;border:1px solid var(--border);
+  transition:background .15s;position:relative;}
+.cal-day:hover{background:var(--card2);}
+.cal-day.empty{cursor:default;}
+.cal-day.today .cal-dn{
+  background:var(--primary);color:white;border-radius:50%;
+  width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
+.cal-dn{font-size:12px;font-weight:700;color:var(--text);}
+.cal-dot{font-size:10px;line-height:1;}
+.cal-legend{padding:8px 16px 4px;display:flex;gap:12px;flex-wrap:wrap;}
+.cal-leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);}
+
+/* ── SETTINGS ── */
+.settings-body{padding:14px 16px;display:flex;flex-direction:column;gap:16px;}
+.set-section{background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);}
+.set-sec-title{padding:14px 16px 10px;font-size:13px;font-weight:800;color:var(--text2);
+  border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.05em;}
+.set-row{padding:13px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
+.set-row:last-child{border-bottom:none;}
+.set-row-icon{font-size:18px;flex-shrink:0;}
+.set-row-body{flex:1;}
+.set-row-lbl{font-size:14px;font-weight:700;}
+.set-row-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.set-row-action{flex-shrink:0;}
+.set-arrow{color:var(--text3);font-size:16px;}
+.set-badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:100px;}
+.set-badge.ok{background:var(--green-dim);color:var(--green);}
+.set-badge.ng{background:var(--rose-dim);color:var(--rose);}
+
+/* Dash tags list */
+.dash-tag-item{padding:11px 16px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);}
+.dash-tag-item:last-child{border-bottom:none;}
+.dash-tag-id{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);flex:1;}
+.dash-tag-name{font-size:13px;font-weight:700;}
+
+/* Sound list */
+.sound-item{padding:11px 16px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);}
+.sound-item:last-child{border-bottom:none;}
+.sound-icon{font-size:18px;flex-shrink:0;}
+.sound-name{flex:1;font-size:14px;font-weight:700;}
+.sound-sub{font-size:11px;color:var(--text2);}
+.sound-actions{display:flex;gap:6px;}
+
+/* Scene assign */
+.scene-row{padding:12px 16px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);}
+.scene-row:last-child{border-bottom:none;}
+.scene-lbl{font-size:13px;font-weight:700;flex:1;}
+.scene-sel{padding:6px 10px;border-radius:var(--rs);border:1.5px solid var(--border);
+  background:var(--card2);font-family:inherit;font-size:12px;color:var(--text);
+  outline:none;max-width:160px;}
+
+/* Email wizard */
+.wizard-step{display:none;}
+.wizard-step.active{display:block;}
+.wizard-num{font-size:11px;font-weight:800;color:var(--text2);
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
+.wizard-title{font-size:18px;font-weight:900;margin-bottom:12px;}
+.wizard-body{font-size:14px;line-height:1.8;color:var(--text2);margin-bottom:16px;}
+.wizard-body strong{color:var(--text);}
+.step-dots{display:flex;gap:6px;justify-content:center;margin:14px 0;}
+.step-dot{width:8px;height:8px;border-radius:50%;background:var(--border);}
+.step-dot.on{background:var(--primary);}
+.notif-toggle{display:flex;align-items:center;padding:11px 14px;
+  background:var(--card2);border-radius:var(--rs);margin-bottom:8px;}
+.notif-lbl{flex:1;font-size:14px;font-weight:600;}
+
+/* Recording modal */
+.rec-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+.rec-type-btn{padding:18px 10px;border-radius:var(--r);border:2px solid var(--border);
+  background:var(--card2);cursor:pointer;font-family:inherit;font-size:13px;
+  font-weight:700;color:var(--text2);text-align:center;display:flex;
+  flex-direction:column;align-items:center;gap:6px;}
+.rec-type-btn span{font-size:28px;}
+.rec-type-btn:hover{border-color:var(--primary);color:var(--primary-d);background:var(--primary-dim);}
+.rec-view{display:none;}
+.rec-view.active{display:block;}
+
+/* Recording UI */
+.rec-indicator{text-align:center;padding:10px 0 6px;}
+.rec-indicator .rec-dot{width:12px;height:12px;border-radius:50%;background:var(--rose);
+  display:inline-block;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.rec-timer{font-size:32px;font-weight:900;font-family:'DM Mono',monospace;
+  text-align:center;margin:8px 0;}
+.vol-meter{height:40px;background:var(--card2);border-radius:var(--rs);
+  overflow:hidden;margin-bottom:12px;display:flex;align-items:flex-end;
+  gap:2px;padding:4px 6px;}
+.vol-bar{flex:1;background:var(--teal);border-radius:2px;transition:height .05s;min-height:2px;}
+.vol-hint{text-align:center;font-size:12px;color:var(--text2);margin-bottom:14px;}
+canvas#waveCanvas{display:none;}
+
+/* MP3 UI */
+.mp3-info{background:var(--card2);border-radius:var(--rs);padding:12px 14px;margin-bottom:12px;}
+.mp3-filename{font-size:14px;font-weight:700;word-break:break-all;}
+.mp3-duration{font-size:12px;color:var(--text2);margin-top:3px;}
+.trim-label{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;}
+.trim-range{width:100%;accent-color:var(--primary);margin-bottom:4px;}
+.trim-hint{font-size:12px;color:var(--text2);text-align:center;}
+
+/* Review UI */
+.review-box{background:var(--card2);border-radius:var(--r);padding:16px;
+  text-align:center;margin-bottom:14px;}
+.review-name{font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text2);}
+.review-play{width:56px;height:56px;border-radius:50%;background:var(--primary);
+  color:white;border:none;cursor:pointer;font-size:22px;margin:0 auto;display:flex;
+  align-items:center;justify-content:center;}
+.review-btns{display:flex;gap:8px;margin-top:12px;}
+.review-btn{flex:1;padding:10px;border-radius:var(--rs);border:1.5px solid var(--border);
+  background:var(--card);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text2);}
+
+/* ── HISTORY ── */
+.hlist{padding:0 16px;display:flex;flex-direction:column;gap:5px;}
+.h-day{font-size:11px;font-weight:800;color:var(--text3);
+  padding:13px 0 4px;text-transform:uppercase;letter-spacing:.05em;}
+.h-item{background:var(--card);border-radius:var(--rs);padding:11px 13px;
+  display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);}
+.h-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.h-info{flex:1;min-width:0;}
+.h-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.h-meta{font-size:11px;color:var(--text2);margin-top:2px;}
+.h-badge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:100px;white-space:nowrap;flex-shrink:0;}
+
+/* ── ALERTS ── */
+.alert-bar{margin:0 16px 9px;padding:10px 13px;border-radius:var(--rs);
+  display:flex;align-items:center;gap:9px;cursor:pointer;
+  border-left:4px solid var(--amber);background:var(--amber-dim);
+  font-size:13px;font-weight:700;color:#92400E;}
+.alert-bar.crit{border-color:var(--rose);background:var(--rose-dim);color:#9F1239;}
+
+/* ── MODALS ── */
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.72);backdrop-filter:blur(4px);
+  z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.ov.open{display:flex;animation:ov-in .2s ease;}
+@keyframes ov-in{from{opacity:0;}to{opacity:1;}}
+.sheet{background:var(--card);border-radius:24px 24px 0 0;width:100%;max-width:430px;
+  max-height:94vh;overflow-y:auto;padding:18px 20px calc(24px + var(--safe-b));
+  animation:sh-in .25s cubic-bezier(.32,0,.15,1);}
+@keyframes sh-in{from{transform:translateY(60px);}to{transform:none;}}
+.sh-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+.sh-title{font-size:18px;font-weight:900;margin-bottom:16px;}
+
+/* STATUS POPUP (dashboard tag) */
+.status-popup{background:var(--bg2);border-radius:var(--r);padding:16px;margin-bottom:14px;}
+.status-date{font-size:12px;color:var(--text3);margin-bottom:12px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;}
+.status-item{display:flex;align-items:center;gap:10px;padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,.07);}
+.status-item:last-child{border-bottom:none;}
+.status-check{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;}
+.status-check.taken{background:var(--teal);color:white;}
+.status-check.missed{background:var(--rose-dim);color:var(--rose);}
+.status-check.future{background:rgba(255,255,255,.1);color:var(--text3);}
+.status-name{font-size:14px;font-weight:700;color:white;flex:1;}
+.status-timing{font-size:12px;color:var(--text3);}
+
+/* FORM */
+.fg{margin-bottom:13px;}
+.fl{font-size:11px;font-weight:800;color:var(--text2);margin-bottom:5px;display:block;
+  text-transform:uppercase;letter-spacing:.05em;}
+.fi,.fs{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--rs);
+  font-size:15px;font-family:inherit;color:var(--text);background:var(--card2);
+  outline:none;transition:border-color .2s;}
+.fi:focus,.fs:focus{border-color:var(--primary);}
+.fi.mono{font-family:'DM Mono',monospace;font-size:13px;}
+.row2{display:flex;gap:10px;}
+.row2 .fg{flex:1;}
+.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.type-chip{padding:13px 8px;border-radius:var(--rs);border:2px solid var(--border);
+  background:var(--card2);cursor:pointer;font-family:inherit;font-size:13px;
+  font-weight:700;color:var(--text2);text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:5px;}
+.type-chip span{font-size:21px;}
+.type-chip.on.medicine{background:var(--primary-dim);border-color:var(--primary);color:var(--primary-d);}
+.type-chip.on.supplement{background:var(--teal-dim);border-color:var(--teal);color:var(--teal);}
+.t-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.t-chip{padding:9px 4px;border-radius:var(--rs);border:1.5px solid var(--border);
+  background:var(--card2);cursor:pointer;font-family:inherit;font-size:13px;
+  font-weight:700;color:var(--text2);text-align:center;}
+.t-chip.on{background:var(--primary-dim);border-color:var(--primary);color:var(--primary-d);}
+.tog-row{display:flex;align-items:center;justify-content:space-between;
+  padding:11px 13px;background:var(--card2);border-radius:var(--rs);cursor:pointer;}
+.tog-lbl{font-size:14px;font-weight:700;}
+.tog{width:44px;height:25px;background:var(--border);border-radius:13px;
+  position:relative;border:none;cursor:pointer;transition:background .2s;flex-shrink:0;}
+.tog.on{background:var(--primary);}
+.tog::after{content:'';position:absolute;width:19px;height:19px;background:white;
+  border-radius:50%;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.tog.on::after{transform:translateX(19px);}
+.nfc-link{display:flex;align-items:center;gap:10px;padding:11px 13px;
+  background:var(--card2);border-radius:var(--rs);cursor:pointer;
+  border:1.5px solid var(--border);transition:all .2s;}
+.nfc-link.linked{border-color:var(--teal);background:var(--teal-dim);}
+.nfc-lbl{font-size:14px;font-weight:700;flex:1;}
+.nfc-st{font-size:12px;color:var(--text2);}
+.btn{width:100%;padding:13px;border-radius:var(--rs);border:none;
+  font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s;}
+.btn:active{opacity:.85;}
+.btn-p{background:linear-gradient(135deg,var(--primary-d),var(--primary));color:white;}
+.btn-g{background:var(--card2);color:var(--text2);border:1.5px solid var(--border);margin-top:8px;}
+.btn-teal{background:var(--teal);color:white;}
+.btn-sm{padding:9px 16px;width:auto;font-size:13px;}
+.hint{font-size:11px;color:var(--amber);font-weight:600;margin-top:4px;}
+
+/* Stock modal */
+.stab-row{display:flex;gap:7px;margin-bottom:14px;}
+.stab{flex:1;padding:9px;border-radius:var(--rs);border:1.5px solid var(--border);
+  background:var(--card2);cursor:pointer;font-family:inherit;font-size:12px;
+  font-weight:800;color:var(--text2);text-align:center;}
+.stab.on{background:var(--primary-dim);border-color:var(--primary);color:var(--primary-d);}
+.stock-box{background:var(--bg2);border-radius:var(--rs);padding:13px 15px;margin-bottom:16px;}
+.sb-lbl{font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:3px;}
+.sb-val{font-size:28px;font-weight:900;color:white;font-family:'DM Mono',monospace;}
+.sb-sub{font-size:12px;color:var(--text3);margin-top:3px;}
+.lot-hist{margin-top:16px;border-top:1px solid var(--border);padding-top:13px;}
+.lot-hist-t{font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:7px;}
+.lot-item{display:flex;align-items:center;gap:8px;padding:8px 0;
+  border-bottom:1px solid var(--border);font-size:13px;}
+.lot-item:last-child{border-bottom:none;}
+.lot-date{color:var(--text2);flex-shrink:0;font-size:11px;width:82px;font-family:'DM Mono',monospace;}
+.lot-qty{font-weight:800;flex-shrink:0;min-width:50px;}
+.lot-qty.add{color:var(--teal);}
+.lot-qty.fix{color:var(--rose);}
+.lot-note{color:var(--text2);font-size:12px;flex:1;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+
+.empty{text-align:center;padding:44px 24px;color:var(--text2);}
+.empty .ei{font-size:48px;margin-bottom:12px;}
+.empty p{font-size:14px;line-height:1.8;}
+
+/* BANNER */
+.banner{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  max-width:390px;width:calc(100% - 32px);padding:12px 17px;border-radius:var(--r);
+  font-size:14px;font-weight:700;z-index:500;display:none;
+  align-items:center;gap:9px;box-shadow:var(--shadow-lg);}
+.banner.ok{background:#059669;color:white;display:flex;animation:bn .25s ease;}
+.banner.ng{background:var(--rose);color:white;display:flex;animation:bn .25s ease;}
+.banner.inf{background:var(--primary-d);color:white;display:flex;animation:bn .25s ease;}
+.banner.warn{background:var(--amber);color:white;display:flex;animation:bn .25s ease;}
+@keyframes bn{from{opacity:0;transform:translate(-50%,-12px);}to{opacity:1;transform:translate(-50%,0);}}
+
+/* Recipient list */
+.recip-item{display:flex;align-items:center;padding:10px 0;
+  border-bottom:1px solid var(--border);gap:8px;}
+.recip-item:last-child{border-bottom:none;}
+.recip-info{flex:1;}
+.recip-name{font-size:14px;font-weight:700;}
+.recip-email{font-size:12px;color:var(--text2);}
+.del-btn{width:28px;height:28px;border-radius:7px;border:none;background:var(--rose-dim);
+  color:var(--rose);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+</style>
+</head>
+<body>
+
+<!-- ══ TODAY ══ -->
+<div id="pg-today" class="page active">
+  <div class="ph"><h1>今日の服薬</h1><div class="sub" id="today-date"></div></div>
+  <div id="today-body"></div>
+</div>
+
+<!-- ══ SCAN ══ -->
+<div id="pg-scan" class="page">
+  <div class="ph"><h1>スキャン</h1><div class="sub">NFCタグにタッチ → 自動記録</div></div>
+  <div class="scan-content">
+    <div class="nfc-area">
+      <button class="nfc-ring" id="nfc-btn" onclick="startNFC()">
+        <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M20 12c0-4.4-3.6-8-8-8s-8 3.6-8 8 3.6 8 8 8"/>
+          <path d="M16 12c0-2.2-1.8-4-4-4s-4 1.8-4 4 1.8 4 4 4"/>
+          <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+        </svg>タッチしてスキャン
+      </button>
+      <div class="nfc-st" id="nfc-status">ボタンを押してNFC待受を開始</div>
+    </div>
+    <div class="scan-res" id="scan-res">
+      <div class="sr-top">
+        <div class="sr-icon" id="sr-icon"></div>
+        <div class="sr-txt"><div class="sr-title" id="sr-title"></div>
+          <div class="sr-det" id="sr-det"></div></div>
+      </div>
+      <button class="sr-undo" id="sr-undo" onclick="undoLastScan()" style="display:none">↩ この記録を取り消す</button>
+    </div>
+    <div style="width:100%">
+      <div class="sec-h"><div class="sec-bar"></div><div class="sec-txt">手動記録</div></div>
+      <div id="manual-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MEDS ══ -->
+<div id="pg-meds" class="page">
+  <div class="ph"><h1>くすり管理</h1><div class="sub" id="meds-sub"></div></div>
+  <div id="alert-area"></div>
+  <div id="mlist" class="mlist"></div>
+  <button class="fab" id="fab" onclick="openAdd()">＋</button>
+</div>
+
+<!-- ══ CALENDAR ══ -->
+<div id="pg-calendar" class="page">
+  <div class="ph"><h1>カレンダー</h1><div class="sub" id="cal-sub"></div></div>
+  <div class="cal-header">
+    <button class="cal-nav-btn" onclick="calMove(-1)">‹</button>
+    <div class="cal-month" id="cal-month-lbl"></div>
+    <button class="cal-nav-btn" onclick="calMove(1)">›</button>
+  </div>
+  <div class="cal-filter">
+    <button class="cal-f on" data-f="all"        onclick="setCalFilter(this)">全体</button>
+    <button class="cal-f"    data-f="medicine"   onclick="setCalFilter(this)">薬のみ</button>
+    <button class="cal-f"    data-f="supplement" onclick="setCalFilter(this)">サプリのみ</button>
+  </div>
+  <div class="cal-grid-wrap"><div class="cal-grid" id="cal-grid"></div></div>
+  <div class="cal-legend">
+    <div class="cal-leg-item">✅ 全て服用</div>
+    <div class="cal-leg-item">⚠️ 一部飲み忘れ</div>
+    <div class="cal-leg-item">❌ ほぼ飲み忘れ</div>
+    <div class="cal-leg-item">─ 記録なし</div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div id="pg-settings" class="page">
+  <div class="ph"><h1>設定</h1><div class="sub">タグ・音声・通知</div></div>
+  <div class="settings-body">
+
+    <!-- 確認タグ -->
+    <div class="set-section">
+      <div class="set-sec-title">📋 確認タグ（今日の状態確認用）</div>
+      <div id="dash-tag-list"></div>
+      <div style="padding:12px 16px">
+        <button class="btn btn-p" onclick="startDashTagReg()">＋ 確認タグを登録する</button>
+      </div>
+    </div>
+
+    <!-- 音声設定 -->
+    <div class="set-section">
+      <div class="set-sec-title">🔊 音声設定</div>
+      <div id="sound-list"></div>
+      <div style="padding:12px 16px;display:flex;gap:8px;">
+        <button class="btn btn-p" style="flex:1" onclick="openAudioModal('recording')">🎤 録音する</button>
+        <button class="btn btn-teal" style="flex:1" onclick="openAudioModal('mp3')">🎵 MP3を登録</button>
+      </div>
+      <div class="set-sec-title" style="border-top:1px solid var(--border)">場面ごとの割り当て</div>
+      <div id="scene-assign-list"></div>
+    </div>
+
+    <!-- メール通知 -->
+    <div class="set-section">
+      <div class="set-sec-title">📧 メール通知（EmailJS）</div>
+      <div class="set-row" onclick="openEmailSetup()" style="cursor:pointer">
+        <div class="set-row-icon">📬</div>
+        <div class="set-row-body">
+          <div class="set-row-lbl">メール通知の設定</div>
+          <div class="set-row-sub" id="email-status-txt">未設定</div>
+        </div>
+        <div class="set-row-action">
+          <span id="email-status-badge" class="set-badge ng">未設定</span>
+        </div>
+      </div>
+      <div id="recip-list" style="padding:0 16px 12px;display:none">
+        <div style="font-size:11px;font-weight:800;color:var(--text2);
+          text-transform:uppercase;letter-spacing:.05em;padding:8px 0 4px">通知先</div>
+        <div id="recip-items"></div>
+        <button class="btn btn-g btn-sm" onclick="addRecipient()">＋ 通知先を追加</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ HISTORY ══ -->
+<!-- (history hidden behind settings in nav - accessed from today or history button) -->
+
+<!-- ══ NAV ══ -->
+<nav class="nav">
+  <button class="nb active" onclick="showPage('today',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>今日
+  </button>
+  <button class="nb" onclick="showPage('scan',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M20 12c0-4.4-3.6-8-8-8s-8 3.6-8 8 3.6 8 8 8"/>
+      <path d="M15 12c0-1.7-1.3-3-3-3s-3 1.3-3 3 1.3 3 3 3"/>
+      <circle cx="12" cy="12" r="1" fill="currentColor"/>
+    </svg>スキャン
+  </button>
+  <button class="nb" onclick="showPage('meds',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2C10.5 3.5 9.3 3 7.5 3A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>
+    </svg>くすり
+  </button>
+  <button class="nb" onclick="showPage('calendar',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+      <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+    </svg>カレンダー
+  </button>
+  <button class="nb" onclick="showPage('settings',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>設定
+  </button>
+</nav>
+
+<!-- ══ MODAL: 薬登録 ══ -->
+<div class="ov" id="ov-main" onclick="ovTap('main',event)">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title" id="main-title">薬・サプリを追加</div>
+    <div class="fg">
+      <label class="fl">種類</label>
+      <div class="type-grid">
+        <button class="type-chip medicine on" id="ty-med" onclick="setType('medicine')"><span>💊</span>薬</button>
+        <button class="type-chip supplement"  id="ty-sup" onclick="setType('supplement')"><span>🌿</span>サプリメント</button>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">名前</label>
+      <input type="text" class="fi" id="in-name" placeholder="例：ビタミンC、降圧薬"></div>
+    <div class="fg">
+      <label class="fl">服用タイミング（複数可）</label>
+      <div class="t-grid">
+        <button class="t-chip" data-t="morning"       onclick="togT(this)">朝</button>
+        <button class="t-chip" data-t="noon"          onclick="togT(this)">昼</button>
+        <button class="t-chip" data-t="evening"       onclick="togT(this)">夜</button>
+        <button class="t-chip" data-t="before_meal"   onclick="togT(this)">食前</button>
+        <button class="t-chip" data-t="after_meal"    onclick="togT(this)">食後</button>
+        <button class="t-chip" data-t="between_meals" onclick="togT(this)">食間</button>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="fg"><label class="fl">1回の量</label>
+        <input type="number" class="fi" id="in-dose" value="1" min="0.5" step="0.5"></div>
+      <div class="fg"><label class="fl">単位</label>
+        <select class="fs" id="in-unit">
+          <option value="錠">錠</option><option value="粒">粒</option>
+          <option value="包">包</option><option value="ml">ml</option><option value="g">g</option>
+        </select></div>
+    </div>
+    <div class="fg">
+      <div class="tog-row" onclick="togStock()">
+        <span class="tog-lbl">在庫数を管理する</span>
+        <button class="tog" id="tog-stock" type="button"></button>
+      </div>
+    </div>
+    <div id="stock-setup" style="display:none">
+      <div class="row2">
+        <div class="fg"><label class="fl">初期在庫数</label>
+          <input type="number" class="fi" id="in-init" placeholder="例：30" min="1"></div>
+        <div class="fg"><label class="fl">発注点（残量アラート）</label>
+          <input type="number" class="fi" id="in-reorder" placeholder="例：7" min="1"></div>
+      </div>
+      <p class="hint" style="margin:-4px 0 12px">⚠ 残量が発注点以下になると通知します</p>
+    </div>
+    <div class="fg"><label class="fl">購入URL（任意）</label>
+      <input type="url" class="fi mono" id="in-url" placeholder="https://www.amazon.co.jp/..."></div>
+    <div class="fg">
+      <label class="fl">NFCタグ連携</label>
+      <div class="nfc-link" id="nfc-link" onclick="linkNFC()">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 12c0-4.4-3.6-8-8-8s-8 3.6-8 8 3.6 8 8 8"/>
+          <path d="M15 12c0-1.7-1.3-3-3-3s-3 1.3-3 3 1.3 3 3 3"/>
+        </svg>
+        <span class="nfc-lbl" id="nfc-link-lbl">タグをタッチして連携</span>
+        <span class="nfc-st"  id="nfc-link-st">未連携</span>
+      </div>
+      <p class="hint" style="margin-top:5px" id="nfc-url-hint"></p>
+    </div>
+    <div class="fg"><label class="fl">メモ（任意）</label>
+      <input type="text" class="fi" id="in-note" placeholder="例：食後30分以内"></div>
+    <button class="btn btn-p" onclick="saveMed()">保存する</button>
+    <button class="btn btn-g" onclick="closeOv('main')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: 在庫管理 ══ -->
+<div class="ov" id="ov-stock" onclick="ovTap('stock',event)">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title" id="stock-title">在庫管理</div>
+    <div class="stock-box">
+      <div class="sb-lbl">現在の残量</div>
+      <div class="sb-val" id="sb-val">—</div>
+      <div class="sb-sub" id="sb-sub"></div>
+    </div>
+    <div class="stab-row">
+      <button class="stab on" id="stab-add" onclick="setStockTab('add')">＋ 入荷・追加</button>
+      <button class="stab"    id="stab-fix" onclick="setStockTab('fix')">✏ 在庫訂正</button>
+    </div>
+    <div id="sf-add">
+      <div class="fg"><label class="fl">追加数量</label>
+        <input type="number" class="fi" id="lot-qty" placeholder="例：60" min="1"></div>
+      <div class="row2">
+        <div class="fg"><label class="fl">発注点を更新（任意）</label>
+          <input type="number" class="fi" id="lot-reorder" placeholder="現在値のまま"></div>
+        <div class="fg"><label class="fl">ロットメモ（任意）</label>
+          <input type="text" class="fi" id="lot-note" placeholder="Amazon等"></div>
+      </div>
+      <button class="btn btn-p" onclick="execLot()">在庫に追加する</button>
+    </div>
+    <div id="sf-fix" style="display:none">
+      <div class="fg"><label class="fl">正しい残量（絶対値）</label>
+        <input type="number" class="fi" id="fix-qty" placeholder="例：12" min="0"></div>
+      <div class="fg"><label class="fl">訂正理由（任意）</label>
+        <input type="text" class="fi" id="fix-note" placeholder="例：紛失・廃棄"></div>
+      <button class="btn btn-p" onclick="execFix()">訂正を保存する</button>
+    </div>
+    <div class="lot-hist" id="lot-hist"></div>
+    <button class="btn btn-g" style="margin-top:14px" onclick="closeOv('stock')">閉じる</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: 今日の状態（確認タグ） ══ -->
+<div class="ov" id="ov-status" onclick="ovTap('status',event)">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title">📋 今日の服薬状況</div>
+    <div class="status-popup" id="status-popup-body"></div>
+    <button class="btn btn-g" onclick="closeOv('status')">閉じる</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: カレンダー日付詳細 ══ -->
+<div class="ov" id="ov-daydetail" onclick="ovTap('daydetail',event)">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title" id="dd-title">詳細</div>
+    <div class="status-popup" id="dd-body"></div>
+    <button class="btn btn-g" onclick="closeOv('daydetail')">閉じる</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: 音声登録 ══ -->
+<div class="ov" id="ov-audio" onclick="ovTap('audio',event)">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title" id="audio-title">音声を登録する</div>
+
+    <!-- タイプ選択 -->
+    <div class="rec-view active" id="rv-type">
+      <div class="rec-type-grid">
+        <button class="rec-type-btn" onclick="showRecView('recording')">
+          <span>🎤</span>録音する<small style="font-size:10px;color:var(--text2)">最大10秒</small>
+        </button>
+        <button class="rec-type-btn" onclick="showRecView('mp3')">
+          <span>🎵</span>MP3を登録<small style="font-size:10px;color:var(--text2)">先頭15秒を使用</small>
+        </button>
+      </div>
+      <button class="btn btn-g" onclick="closeOv('audio')">キャンセル</button>
+    </div>
+
+    <!-- 録音UI -->
+    <div class="rec-view" id="rv-recording">
+      <div class="fg"><label class="fl">声の主のお名前</label>
+        <input type="text" class="fi" id="rec-owner" placeholder="例：孫・さくらちゃん"></div>
+      <div id="rv-rec-idle">
+        <button class="btn btn-p" onclick="startRecording()">🎤 録音を開始する</button>
+      </div>
+      <div id="rv-rec-active" style="display:none">
+        <div class="rec-indicator"><span class="rec-dot"></span> 録音中</div>
+        <div class="rec-timer" id="rec-timer">10</div>
+        <div class="vol-meter" id="vol-meter">
+          <!-- bars filled by JS -->
+        </div>
+        <p class="vol-hint" id="vol-hint">マイクに向かってはっきりと話してください</p>
+        <button class="btn btn-g" onclick="stopRecording()">■ 録音を終了する</button>
+      </div>
+      <button class="btn btn-g" style="margin-top:8px" onclick="showRecView('type')">‹ 戻る</button>
+    </div>
+
+    <!-- MP3 UI -->
+    <div class="rec-view" id="rv-mp3">
+      <div class="fg"><label class="fl">声の主・ファイルの名前</label>
+        <input type="text" class="fi" id="mp3-owner" placeholder="例：morning.mp3、妻"></div>
+      <div id="rv-mp3-select">
+        <input type="file" id="mp3-file" accept=".mp3,.wav,.aac,.m4a,audio/*" style="display:none" onchange="onMp3Selected()">
+        <button class="btn btn-p" onclick="document.getElementById('mp3-file').click()">📂 ファイルを選ぶ</button>
+      </div>
+      <div id="rv-mp3-trim" style="display:none">
+        <div class="mp3-info">
+          <div class="mp3-filename" id="mp3-filename"></div>
+          <div class="mp3-duration" id="mp3-duration"></div>
+        </div>
+        <div class="trim-label">開始位置を選んでください（ここから最大15秒使用）</div>
+        <input type="range" class="trim-range" id="trim-start" min="0" step="0.1" value="0" oninput="onTrimChange()">
+        <p class="trim-hint" id="trim-hint">開始: 0:00 〜 15秒間を使用</p>
+        <audio id="mp3-preview" style="display:none"></audio>
+        <button class="btn btn-teal" style="margin-top:10px" onclick="previewMp3()">▶ 試し再生（15秒）</button>
+      </div>
+      <button class="btn btn-g" style="margin-top:8px" onclick="showRecView('type')">‹ 戻る</button>
+    </div>
+
+    <!-- レビューUI -->
+    <div class="rec-view" id="rv-review">
+      <div class="review-box">
+        <div class="review-name" id="rv-name"></div>
+        <button class="review-play" onclick="playReview()">▶</button>
+        <p style="font-size:12px;color:var(--text2);margin-top:8px">押して確認再生</p>
+      </div>
+      <div class="review-btns">
+        <button class="review-btn" onclick="retake()">🔄 リテイク</button>
+        <button class="review-btn" style="background:var(--teal);color:white;border-color:var(--teal)"
+          onclick="saveSound()">✅ これで登録する</button>
+      </div>
+      <button class="btn btn-g" style="margin-top:10px" onclick="closeOv('audio')">キャンセル</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODAL: メール設定ウィザード ══ -->
+<div class="ov" id="ov-email" onclick="ovTap('email',event)">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title">📧 メール通知の設定</div>
+    <div class="step-dots" id="step-dots"></div>
+
+    <!-- Step 1 -->
+    <div class="wizard-step active" id="ws-1">
+      <div class="wizard-num">ステップ 1 / 4</div>
+      <div class="wizard-title">EmailJSに登録します</div>
+      <div class="wizard-body">
+        まず無料アカウントを作ります。<br>
+        下のボタンを押してサイトを開いてください。<br><br>
+        <strong>※ Googleアカウントでも登録できます</strong>
+      </div>
+      <a href="https://www.emailjs.com" target="_blank">
+        <button class="btn btn-p">EmailJSのサイトを開く →</button>
+      </a>
+      <div class="wizard-body" style="margin-top:12px">
+        サイトが開いたら「<strong>Sign Up Free</strong>」を押して登録してください。<br>
+        登録が終わったら「次へ」を押してください。
+      </div>
+      <button class="btn btn-g" onclick="wsNext(2)">登録できました → 次へ</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="wizard-step" id="ws-2">
+      <div class="wizard-num">ステップ 2 / 4</div>
+      <div class="wizard-title">メールサービスを追加します</div>
+      <div class="wizard-body">
+        ログイン後の画面で：<br><br>
+        ① 左メニューの「<strong>Email Services</strong>」をタップ<br>
+        ② 「<strong>Add New Service</strong>」をタップ<br>
+        ③ 「<strong>Gmail</strong>」を選択<br>
+        ④ 「<strong>Connect Account</strong>」でGmailと連携<br>
+        ⑤ 「<strong>Create Service</strong>」をタップ<br><br>
+        作成後に表示される<br>
+        <strong>「Service ID」</strong>をメモしてください
+      </div>
+      <button class="btn btn-p" onclick="wsNext(3)">Service IDをメモしました → 次へ</button>
+      <button class="btn btn-g" onclick="wsNext(1)">‹ 戻る</button>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="wizard-step" id="ws-3">
+      <div class="wizard-num">ステップ 3 / 4</div>
+      <div class="wizard-title">IDと鍵を入力します</div>
+      <div class="wizard-body" style="margin-bottom:14px">
+        EmailJSの管理画面で確認した情報を入力してください
+      </div>
+      <div class="fg"><label class="fl">Service ID（メールサービスのID）</label>
+        <input type="text" class="fi mono" id="ej-service" placeholder="service_xxxxxxx"></div>
+      <div class="fg">
+        <label class="fl">Template ID</label>
+        <div class="wizard-body" style="font-size:12px;margin-bottom:8px">
+          「<strong>Email Templates</strong>」→「<strong>Create New Template</strong>」で<br>
+          テンプレートを作成し、そのIDを入力します。<br>
+          件名：<strong>{{subject}}</strong>　本文：<strong>{{message}}</strong>
+        </div>
+        <input type="text" class="fi mono" id="ej-template" placeholder="template_xxxxxxx">
+      </div>
+      <div class="fg"><label class="fl">Public Key（アカウントのAPI鍵）</label>
+        <div class="wizard-body" style="font-size:12px;margin-bottom:8px">
+          「<strong>Account</strong>」→「<strong>General</strong>」の「<strong>Public Key</strong>」
+        </div>
+        <input type="text" class="fi mono" id="ej-pubkey" placeholder="xxxxxxxxxxxxxxxx">
+      </div>
+      <button class="btn btn-p" onclick="wsNext(4)">入力しました → 次へ</button>
+      <button class="btn btn-g" onclick="wsNext(2)">‹ 戻る</button>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="wizard-step" id="ws-4">
+      <div class="wizard-num">ステップ 4 / 4</div>
+      <div class="wizard-title">通知先と通知内容を設定します</div>
+      <div class="fg"><label class="fl">通知先メールアドレス（自分）</label>
+        <input type="email" class="fi" id="ej-email1" placeholder="例：masato@example.com"></div>
+      <div class="fg"><label class="fl">通知先メールアドレス（家族・任意）</label>
+        <input type="email" class="fi" id="ej-email2" placeholder="例：family@example.com"></div>
+      <div class="fg"><label class="fl">通知する場面</label>
+        <div class="notif-toggle" onclick="togEmailNotif('missed')">
+          <span class="notif-lbl">💊 飲み忘れアラート</span>
+          <button class="tog" id="tog-missed" type="button"></button>
+        </div>
+        <div class="notif-toggle" onclick="togEmailNotif('complete')">
+          <span class="notif-lbl">✅ 全部完了の報告</span>
+          <button class="tog" id="tog-complete" type="button"></button>
+        </div>
+        <div class="notif-toggle" onclick="togEmailNotif('stockout')">
+          <span class="notif-lbl">📦 在庫切れアラート</span>
+          <button class="tog" id="tog-stockout" type="button"></button>
+        </div>
+      </div>
+      <button class="btn btn-p" onclick="saveEmailConfig()">✅ 設定を保存する</button>
+      <button class="btn btn-g" onclick="wsNext(3)">‹ 戻る</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="banner" id="banner"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════
+const TL = {morning:'朝',noon:'昼',evening:'夜',
+  before_meal:'食前',after_meal:'食後',between_meals:'食間'};
+const TW = {morning:[5,10],noon:[10,15],evening:[17,24],
+  before_meal:[5,24],after_meal:[5,24],between_meals:[5,24]};
+const T_PRI = {morning:0,noon:0,evening:0,before_meal:1,after_meal:1,between_meals:1};
+const TORDER = ['morning','noon','evening','before_meal','after_meal','between_meals'];
+
+const DEFAULT_SOUNDS = [
+  {id:'default-chime',   name:'チャイム（記録成功）'},
+  {id:'default-fanfare', name:'ファンファーレ（全完了）'},
+  {id:'default-alert',   name:'アラート（飲み忘れ）'},
+  {id:'default-warning', name:'警告音（在庫切れ）'},
+  {id:'default-info',    name:'通知音（確認タグ）'},
+];
+
+const SCENES = [
+  {key:'onRecord',   label:'💊 記録成功時'},
+  {key:'onComplete', label:'✅ 全部完了時'},
+  {key:'onMissed',   label:'⏰ 飲み忘れ時'},
+  {key:'onStockOut', label:'📦 在庫切れ時'},
+  {key:'onDashScan', label:'📋 確認タグタッチ時'},
+];
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let S = {
+  medicines:[],records:[],lots:[],
+  dashTags:[],          // [{id, name}]
+  customSounds:[],      // [{id, name, type:'recording'|'mp3', dataUrl, startTime, duration}]
+  soundAssign:{         // scene → sound id
+    onRecord:'default-chime', onComplete:'default-fanfare',
+    onMissed:'default-alert', onStockOut:'default-warning',
+    onDashScan:'default-info'
+  },
+  emailConfig:{
+    serviceId:'', templateId:'', publicKey:'',
+    recipients:[],
+    notify:{missed:true, complete:true, stockout:true}
+  }
+};
+
+let editId=null, stockMid=null, pendingTag=null, linkingNFC=false;
+let curType='medicine', useStock=false, bannerTimer=null;
+let lastScanRecord=null;
+let dashTagRegMode=false;
+
+// Calendar state
+let calYear=new Date().getFullYear();
+let calMonth=new Date().getMonth();
+let calFilter='all';
+
+// Audio state
+let recMediaRecorder=null, recChunks=[], recTimer=null, recCountdown=10;
+let recDataUrl=null, recType='recording';
+let mp3DataUrl=null, mp3StartTime=0, mp3TotalDuration=0;
+let volBars=[], volAnimId=null, volAnalyser=null, micStream=null;
+let reviewAudio=null;
+
+// Email wizard
+let emailNotifState={missed:true,complete:true,stockout:true};
+
+// ═══════════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════════
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
+const todayKey = () => new Date().toISOString().slice(0,10);
+const save = () => {
+  try { localStorage.setItem('kl_v4', JSON.stringify(S)); }
+  catch(e) { banner('⚠ 保存容量が不足しています', 'ng'); }
+};
+function load() {
+  try {
+    const r = localStorage.getItem('kl_v4');
+    if (r) S = JSON.parse(r);
+    // defaults
+    if (!S.lots) S.lots = [];
+    if (!S.dashTags) S.dashTags = [];
+    if (!S.customSounds) S.customSounds = [];
+    if (!S.soundAssign) S.soundAssign = {
+      onRecord:'default-chime', onComplete:'default-fanfare',
+      onMissed:'default-alert', onStockOut:'default-warning', onDashScan:'default-info'
+    };
+    if (!S.emailConfig) S.emailConfig = {
+      serviceId:'',templateId:'',publicKey:'',
+      recipients:[],notify:{missed:true,complete:true,stockout:true}
+    };
+  } catch(e) {}
+}
+
+const isTaken = (mid, t, date) =>
+  S.records.some(r => r.mid===mid && r.timing===t && r.ts.startsWith(date));
+
+// ═══════════════════════════════════════════
+//  TIMING LOGIC (時刻判定)
+// ═══════════════════════════════════════════
+function pickTimingByHour(timings, hour, date, mid) {
+  const untaken = timings.filter(t => !isTaken(mid, t, date));
+  if (!untaken.length) return null;
+  const inWindow = untaken.filter(t => hour >= TW[t][0] && hour < TW[t][1]);
+  if (inWindow.length) {
+    return inWindow.sort((a,b) => T_PRI[a]-T_PRI[b])[0];
+  }
+  return untaken.sort((a,b) => TORDER.indexOf(a)-TORDER.indexOf(b))[0];
+}
+
+// ═══════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b => b.classList.remove('active'));
+  document.getElementById('pg-'+name).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('fab').style.display = name==='meds' ? 'flex' : 'none';
+  if (name==='today')    renderToday();
+  if (name==='scan')     renderManual();
+  if (name==='meds')     renderMeds();
+  if (name==='calendar') renderCalendar();
+  if (name==='settings') renderSettings();
+}
+
+// ═══════════════════════════════════════════
+//  TODAY
+// ═══════════════════════════════════════════
+function renderToday() {
+  const now=new Date(), h=now.getHours(), today=todayKey();
+  document.getElementById('today-date').textContent =
+    now.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  const act = S.medicines.filter(m => m.active!==false);
+  let total=0, done=0;
+  act.forEach(m => m.timings.forEach(t => { total++; if (isTaken(m.id,t,today)) done++; }));
+  const pct = total>0 ? Math.round(done/total*100) : 0;
+  let missed=0;
+  act.forEach(m => m.timings.forEach(t => {
+    if (h>=TW[t][1] && !isTaken(m.id,t,today)) missed++;
+  }));
+
+  let html = `<div class="today-hero">
+    <div>
+      <div class="th-lbl">本日の服用</div>
+      <div class="th-cnt">${done}<span style="font-size:18px;font-weight:500;opacity:.7"> / ${total}</span></div>
+      <div class="th-of">${missed>0?`⚠ ${missed}件 飲み忘れあり`:done===total&&total>0?'✅ 全部完了！':'記録してください'}</div>
+    </div>
+    <div class="th-ring">
+      <div class="th-pct">${pct}%</div>
+      <div class="th-pct-l">達成率</div>
+    </div>
+  </div>`;
+
+  if (!act.length) {
+    html += `<div class="empty"><div class="ei">💊</div>
+      <p>薬・サプリが未登録です<br>「くすり」タブから追加してください</p></div>`;
+  } else {
+    const groups={};
+    act.forEach(m => m.timings.forEach(t => {
+      if (!groups[t]) groups[t]=[];
+      groups[t].push(m);
+    }));
+    TORDER.forEach(t => {
+      if (!groups[t]) return;
+      const ms = groups[t].filter(m => h>=TW[t][1] && !isTaken(m.id,t,today)).length;
+      html += `<div class="sec-h"><div class="sec-bar"></div><div class="sec-txt">${TL[t]}</div>
+        ${ms?`<div class="sec-badge">⚠ ${ms}件</div>`:''}
+      </div>`;
+      groups[t].forEach(m => {
+        const taken=isTaken(m.id,t,today), over=!taken&&h>=TW[t][1];
+        const icon=m.category==='supplement'?'🌿':'💊';
+        let stk='';
+        if (m.stockManaged&&m.rem!=null) {
+          const low=m.reorder&&m.rem<=m.reorder;
+          stk=`<div class="dstock-txt ${low?'low':'ok'}">在庫: ${m.rem}${m.unit||'錠'}${low?' ⚠':''}</div>`;
+        }
+        html += `<div class="dose-card${taken?' taken':''}">
+          <div class="d-icon ${m.category}">${icon}</div>
+          <div class="dinfo">
+            <div class="dname">${m.name}</div>
+            <div class="ddet">${m.dosagePerTake}${m.unit||'錠'}${m.note?' · '+m.note:''}</div>
+            ${stk}
+          </div>
+          <button class="dcheck${taken?' taken':over?' overdue':''}"
+            onclick="toggleDose('${m.id}','${t}')">
+            ${taken?'✓':''}
+          </button>
+        </div>`;
+      });
+    });
+  }
+  document.getElementById('today-body').innerHTML = html;
+
+  // 全完了チェック
+  if (done>0 && done===total) {
+    setTimeout(() => playScene('onComplete'), 300);
+    sendEmail('complete', `本日の服薬が全て完了しました（${done}/${total}件）`);
+  }
+}
+
+function toggleDose(mid, timing) {
+  const today=todayKey();
+  const idx=S.records.findIndex(r=>r.mid===mid&&r.timing===timing&&r.ts.startsWith(today));
+  const m=S.medicines.find(x=>x.id===mid);
+  if (!m) return;
+  if (idx>=0) {
+    if (m.stockManaged&&m.rem!=null) m.rem=parseFloat((m.rem+m.dosagePerTake).toFixed(2));
+    S.records.splice(idx,1);
+    banner('取り消しました','inf');
+  } else {
+    if (m.stockManaged&&m.rem!=null&&m.rem>0) m.rem=parseFloat((m.rem-m.dosagePerTake).toFixed(2));
+    S.records.push({id:uid(),mid,timing,ts:new Date().toISOString(),method:'manual'});
+    playScene('onRecord');
+    banner(`✓ ${m.name}（${TL[timing]}）を記録`,'ok');
+    checkReorder(m);
+  }
+  save(); renderToday();
+}
+
+// ═══════════════════════════════════════════
+//  SCAN
+// ═══════════════════════════════════════════
+function renderManual() {
+  const el=document.getElementById('manual-list');
+  const today=todayKey();
+  const act=S.medicines.filter(m=>m.active!==false);
+  if (!act.length) {
+    el.innerHTML='<div class="empty" style="padding:20px 0"><p>薬・サプリが未登録です</p></div>';
+    return;
+  }
+  el.innerHTML=act.map(m=>m.timings.map(t=>{
+    const taken=isTaken(m.id,t,today), icon=m.category==='supplement'?'🌿':'💊';
+    return `<div class="dose-card${taken?' taken':''}" style="margin:0 0 8px">
+      <div class="d-icon ${m.category}">${icon}</div>
+      <div class="dinfo"><div class="dname">${m.name}</div>
+        <div class="ddet">${TL[t]} · ${m.dosagePerTake}${m.unit||'錠'}</div></div>
+      <button class="dcheck${taken?' taken':''}"
+        onclick="manualRecord('${m.id}','${t}')">
+        ${taken?'✓':''}
+      </button>
+    </div>`;
+  }).join('')).join('');
+}
+
+function manualRecord(mid, timing) {
+  const today=todayKey(), m=S.medicines.find(x=>x.id===mid);
+  if (!m) return;
+  const idx=S.records.findIndex(r=>r.mid===mid&&r.timing===timing&&r.ts.startsWith(today));
+  if (idx>=0) {
+    if (m.stockManaged&&m.rem!=null) m.rem=parseFloat((m.rem+m.dosagePerTake).toFixed(2));
+    S.records.splice(idx,1);
+    banner('取り消しました','inf');
+  } else {
+    if (m.stockManaged&&m.rem!=null&&m.rem>0) m.rem=parseFloat((m.rem-m.dosagePerTake).toFixed(2));
+    S.records.push({id:uid(),mid,timing,ts:new Date().toISOString(),method:'manual'});
+    playScene('onRecord');
+    banner(`✓ ${m.name}（${TL[timing]}）を記録`,'ok');
+    checkReorder(m);
+  }
+  save(); renderManual(); renderToday();
+}
+
+async function startNFC() {
+  if (!('NDEFReader' in window)) {
+    showScanRes('ng','⚠','Android Chrome が必要です','Web NFC APIはAndroid Chromeのみ対応');
+    return;
+  }
+  const btn=document.getElementById('nfc-btn'), st=document.getElementById('nfc-status');
+  try {
+    const reader=new NDEFReader();
+    await reader.scan();
+    btn.classList.add('scanning');
+    st.textContent='📡 待受中… タグに近づけてください';
+    reader.addEventListener('reading',({serialNumber})=>{
+      btn.classList.remove('scanning');
+      st.textContent='ボタンを押してNFC待受を開始';
+      handleScan(serialNumber);
+    });
+  } catch(e) {
+    btn.classList.remove('scanning');
+    st.textContent='ボタンを押してNFC待受を開始';
+    showScanRes('ng','❌','NFCエラー',e.message);
+  }
+}
+
+function handleScan(tagId) {
+  // 確認タグ連携モード
+  if (dashTagRegMode) {
+    const name=prompt('このタグの名前を入力してください（例：玄関タグ）') || 'タグ'+Date.now();
+    S.dashTags.push({id:tagId, name});
+    save(); dashTagRegMode=false;
+    banner('✓ 確認タグを登録しました','ok');
+    renderSettings();
+    return;
+  }
+  // 薬タグ連携モード
+  if (linkingNFC) {
+    pendingTag=tagId;
+    document.getElementById('nfc-link').classList.add('linked');
+    document.getElementById('nfc-link-lbl').textContent='タグ連携完了';
+    document.getElementById('nfc-link-st').textContent='…'+tagId.slice(-6);
+    updateNfcUrlHint();
+    linkingNFC=false; banner('✓ NFCタグを登録しました','ok'); return;
+  }
+  // 確認タグ？
+  const dashTag=S.dashTags.find(t=>t.id===tagId);
+  if (dashTag) {
+    playScene('onDashScan');
+    openStatusPopup();
+    return;
+  }
+  // 薬タグ？
+  const med=S.medicines.find(m=>m.nfcTag===tagId);
+  if (!med) {
+    showScanRes('ng','❓','未登録のタグです','「くすり」タブで連携してください');
+    return;
+  }
+  const today=todayKey(), h=new Date().getHours();
+  const timing=pickTimingByHour(med.timings, h, today, med.id);
+  if (!timing) {
+    showScanRes('inf','✅',`${med.name}`,'本日分はすべて記録済みです',false);
+    return;
+  }
+  if (med.stockManaged&&med.rem!=null&&med.rem>0)
+    med.rem=parseFloat((med.rem-med.dosagePerTake).toFixed(2));
+  const rec={id:uid(),mid:med.id,timing,ts:new Date().toISOString(),method:'nfc'};
+  S.records.push(rec);
+  lastScanRecord=rec;
+  save();
+  playScene('onRecord');
+  showScanRes('ok','💊',`${med.name}（${TL[timing]}）を記録しました！`,
+    `${med.dosagePerTake}${med.unit||'錠'}${med.stockManaged?' · 残り'+med.rem+(med.unit||'錠'):''}`,true);
+  banner(`💊 ${med.name}（${TL[timing]}）記録完了！`,'ok');
+  checkReorder(med); renderManual(); renderToday();
+}
+
+function showScanRes(type, icon, title, detail, showUndo=false) {
+  const el=document.getElementById('scan-res');
+  el.className='scan-res '+type;
+  document.getElementById('sr-icon').textContent=icon;
+  document.getElementById('sr-title').textContent=title;
+  document.getElementById('sr-det').textContent=detail;
+  document.getElementById('sr-undo').style.display=showUndo?'block':'none';
+}
+
+function undoLastScan() {
+  if (!lastScanRecord) return;
+  const idx=S.records.findIndex(r=>r.id===lastScanRecord.id);
+  if (idx<0) { banner('すでに取り消し済みです','inf'); return; }
+  const m=S.medicines.find(x=>x.id===lastScanRecord.mid);
+  if (m&&m.stockManaged&&m.rem!=null) m.rem=parseFloat((m.rem+m.dosagePerTake).toFixed(2));
+  S.records.splice(idx,1); lastScanRecord=null; save();
+  showScanRes('inf','↩','記録を取り消しました','スキャンし直すか手動で記録してください',false);
+  banner('記録を取り消しました','inf');
+  renderManual(); renderToday();
+}
+
+async function linkNFC() {
+  if (!('NDEFReader' in window)) { banner('⚠ Android Chrome が必要です','ng'); return; }
+  linkingNFC=true; banner('📡 連携するタグにタッチしてください','inf');
+  try {
+    const reader=new NDEFReader(); await reader.scan();
+    reader.addEventListener('reading',({serialNumber})=>{
+      pendingTag=serialNumber;
+      document.getElementById('nfc-link').classList.add('linked');
+      document.getElementById('nfc-link-lbl').textContent='タグ連携完了';
+      document.getElementById('nfc-link-st').textContent='…'+serialNumber.slice(-6);
+      updateNfcUrlHint(); linkingNFC=false;
+      banner('✓ NFCタグを登録しました','ok');
+    },{once:true});
+  } catch(e) { linkingNFC=false; banner('NFCエラー: '+e.message,'ng'); }
+}
+
+function updateNfcUrlHint() {
+  const el=document.getElementById('nfc-url-hint');
+  if (!pendingTag) { el.innerHTML=''; return; }
+  const base=location.href.split('?')[0];
+  el.innerHTML=`NFC Toolsで下記URLを書き込むとタッチだけでアプリ起動します：<br>
+    <span style="font-family:monospace;font-size:11px;word-break:break-all;color:var(--primary)">
+    ${base}?nfc=${encodeURIComponent(pendingTag)}</span>`;
+}
+
+// ═══════════════════════════════════════════
+//  DASHBOARD STATUS POPUP
+// ═══════════════════════════════════════════
+function openStatusPopup() {
+  const today=todayKey(), now=new Date(), h=now.getHours();
+  const act=S.medicines.filter(m=>m.active!==false);
+  const dateStr=now.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+
+  let html=`<div class="status-date">📅 ${dateStr}</div>`;
+  if (!act.length) {
+    html+='<div style="color:var(--text3);text-align:center;padding:20px">薬・サプリが未登録です</div>';
+  } else {
+    act.forEach(m => {
+      m.timings.forEach(t => {
+        const taken=isTaken(m.id,t,today);
+        const future=h<TW[t][0];
+        const icon=m.category==='supplement'?'🌿':'💊';
+        const cls=taken?'taken':future?'future':'missed';
+        const mark=taken?'✓':future?'─':'!';
+        html+=`<div class="status-item">
+          <div class="status-check ${cls}">${mark}</div>
+          <div class="status-name">${icon} ${m.name}</div>
+          <div class="status-timing">${TL[t]}</div>
+        </div>`;
+      });
+    });
+  }
+  document.getElementById('status-popup-body').innerHTML=html;
+  document.getElementById('ov-status').classList.add('open');
+}
+
+// ═══════════════════════════════════════════
+//  MEDS PAGE
+// ═══════════════════════════════════════════
+function renderMeds() {
+  document.getElementById('fab').style.display='flex';
+  const act=S.medicines.filter(m=>m.active!==false);
+  document.getElementById('meds-sub').textContent=`${act.length}件登録中`;
+  const alerts=act.filter(m=>m.stockManaged&&m.rem!=null&&m.reorder!=null&&m.rem<=m.reorder);
+  document.getElementById('alert-area').innerHTML=alerts.map(m=>{
+    const crit=m.rem<=0;
+    return `<div class="alert-bar${crit?' crit':''}" onclick="openStock('${m.id}')">
+      ${crit?'🚨':'⚠'} <strong>${m.name}</strong> 残り${m.rem}${m.unit||'錠'}
+      — ${crit?'在庫切れ！':'発注点以下'}
+    </div>`;
+  }).join('');
+
+  if (!act.length) {
+    document.getElementById('mlist').innerHTML=
+      `<div class="empty"><div class="ei">💊</div>
+       <p>まだ登録がありません<br>右下の ＋ から追加できます</p></div>`;
+    return;
+  }
+  document.getElementById('mlist').innerHTML=act.map(m=>{
+    const icon=m.category==='supplement'?'🌿':'💊';
+    const tTags=m.timings.map(t=>`<span class="tag tag-tim">${TL[t]}</span>`).join('');
+    const catTag=`<span class="tag ${m.category==='supplement'?'tag-sup':'tag-med'}">
+      ${m.category==='supplement'?'サプリ':'薬'}</span>`;
+    const nfcTag=m.nfcTag?`<span class="tag tag-nfc">NFC</span>`:'';
+    let stockHtml='';
+    if (m.stockManaged) {
+      const rem=m.rem??0, init=m.initStock||Math.max(rem,1);
+      const pct=Math.max(0,Math.min(100,rem/init*100));
+      const col=m.reorder&&rem<=m.reorder?'var(--rose)':pct<30?'var(--amber)':'var(--teal)';
+      const valCls=m.reorder&&rem<=m.reorder?' danger':'';
+      stockHtml=`<div class="mc-stock">
+        <div class="ms-row">
+          <span class="ms-lbl">在庫残量</span>
+          <span class="ms-val${valCls}">${rem} ${m.unit||'錠'}
+            ${m.reorder?`<span class="ms-ro">発注点: ${m.reorder}</span>`:''}
+          </span>
+        </div>
+        <div class="pbar"><div class="pfill" style="width:${pct}%;background:${col}"></div></div>
+        <div class="ms-btns">
+          <button class="ms-btn" onclick="openStock('${m.id}')">📦 在庫管理</button>
+          ${m.purchaseUrl?`<button class="ms-btn buy" onclick="openUrl('${m.id}')">🛒 購入する</button>`:''}
+        </div>
+      </div>`;
+    } else if (m.purchaseUrl) {
+      stockHtml=`<div class="mc-stock"><div class="ms-btns">
+        <button class="ms-btn buy" onclick="openUrl('${m.id}')">🛒 購入する</button>
+      </div></div>`;
+    }
+    return `<div class="med-card">
+      <div class="mc-main">
+        <div class="mc-icon ${m.category}">${icon}</div>
+        <div class="mc-body">
+          <div class="mc-name">${m.name}</div>
+          <div class="mc-tags">${catTag}${tTags}${nfcTag}</div>
+          ${m.note?`<div class="mc-note">${m.note}</div>`:''}
+        </div>
+        <div class="mc-btns">
+          <button class="ib" onclick="openEdit('${m.id}')">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/>
+            </svg>
+          </button>
+          <button class="ib del" onclick="delMed('${m.id}')">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      ${stockHtml}
+    </div>`;
+  }).join('');
+}
+
+function openUrl(mid) {
+  const m=S.medicines.find(x=>x.id===mid);
+  if (m?.purchaseUrl) window.open(m.purchaseUrl,'_blank');
+}
+function delMed(id) {
+  if (!confirm('削除しますか？')) return;
+  S.medicines=S.medicines.filter(m=>m.id!==id);
+  save(); renderMeds();
+}
+
+// ── STOCK ──
+function openStock(mid) {
+  stockMid=mid;
+  const m=S.medicines.find(x=>x.id===mid); if (!m) return;
+  const unit=m.unit||'錠';
+  document.getElementById('stock-title').textContent=m.name+' — 在庫管理';
+  document.getElementById('sb-val').textContent=(m.rem!=null?m.rem:'—')+' '+unit;
+  document.getElementById('sb-sub').textContent=
+    (m.reorder?`発注点: ${m.reorder}${unit}`:'発注点: 未設定')+
+    (m.initStock?` | 初期: ${m.initStock}${unit}`:'');
+  ['lot-qty','lot-note','lot-reorder','fix-qty','fix-note'].forEach(id=>
+    document.getElementById(id).value='');
+  setStockTab('add'); renderLots(mid);
+  document.getElementById('ov-stock').classList.add('open');
+}
+function setStockTab(t) {
+  document.getElementById('stab-add').classList.toggle('on',t==='add');
+  document.getElementById('stab-fix').classList.toggle('on',t==='fix');
+  document.getElementById('sf-add').style.display=t==='add'?'block':'none';
+  document.getElementById('sf-fix').style.display=t==='fix'?'block':'none';
+}
+function execLot() {
+  const m=S.medicines.find(x=>x.id===stockMid); if (!m) return;
+  const qty=parseFloat(document.getElementById('lot-qty').value);
+  if (!qty||qty<=0) { banner('⚠ 追加数量を入力してください','ng'); return; }
+  const note=document.getElementById('lot-note').value.trim();
+  const nr=document.getElementById('lot-reorder').value;
+  if (nr) m.reorder=parseInt(nr);
+  m.rem=(m.rem||0)+qty;
+  S.lots.push({id:uid(),mid:stockMid,type:'add',qty,note,ts:new Date().toISOString()});
+  save();
+  const unit=m.unit||'錠';
+  document.getElementById('sb-val').textContent=m.rem+' '+unit;
+  renderLots(stockMid);
+  banner(`✓ ${qty}${unit}追加 → 残${m.rem}${unit}`,'ok');
+  renderMeds();
+}
+function execFix() {
+  const m=S.medicines.find(x=>x.id===stockMid); if (!m) return;
+  const raw=document.getElementById('fix-qty').value;
+  if (raw==='') { banner('⚠ 残量を入力してください','ng'); return; }
+  const qty=parseFloat(raw), old=m.rem;
+  const note=document.getElementById('fix-note').value.trim();
+  m.rem=qty;
+  S.lots.push({id:uid(),mid:stockMid,type:'fix',qty,qtyBefore:old,note,ts:new Date().toISOString()});
+  save();
+  document.getElementById('sb-val').textContent=qty+' '+(m.unit||'錠');
+  renderLots(stockMid); checkReorder(m); renderMeds();
+  banner(`✓ 在庫を${qty}${m.unit||'錠'}に訂正しました`,'ok');
+}
+function renderLots(mid) {
+  const el=document.getElementById('lot-hist');
+  const lots=S.lots.filter(l=>l.mid===mid).sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,20);
+  if (!lots.length) { el.innerHTML=''; return; }
+  const m=S.medicines.find(x=>x.id===mid), unit=m?.unit||'錠';
+  el.innerHTML=`<div class="lot-hist-t">入荷・訂正ログ</div>`+
+    lots.map(l=>{
+      const d=new Date(l.ts).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
+      const t=new Date(l.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+      return `<div class="lot-item">
+        <span class="lot-date">${d} ${t}</span>
+        <span class="lot-qty ${l.type==='add'?'add':'fix'}">${l.type==='add'?'+'+l.qty:'→'+l.qty}${unit}</span>
+        <span class="lot-note">${l.note||''}</span>
+      </div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  CALENDAR
+// ═══════════════════════════════════════════
+function setCalFilter(btn) {
+  calFilter=btn.dataset.f;
+  document.querySelectorAll('.cal-f').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderCalendar();
+}
+function calMove(dir) { calMonth+=dir; if (calMonth>11){calMonth=0;calYear++;} if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
+
+function getDayStatus(dateStr) {
+  const meds=S.medicines.filter(m=>{
+    if (m.active===false) return false;
+    if (calFilter==='medicine') return m.category==='medicine';
+    if (calFilter==='supplement') return m.category==='supplement';
+    return true;
+  });
+  let total=0, done=0;
+  meds.forEach(m=>m.timings.forEach(t=>{total++;if(isTaken(m.id,t,dateStr))done++;}));
+  if (total===0) return 'empty';
+  if (done===0) return 'none';
+  if (done===total) return 'all';
+  return 'partial';
+}
+
+function renderCalendar() {
+  const now=new Date();
+  document.getElementById('cal-month-lbl').textContent=
+    `${calYear}年${calMonth+1}月`;
+  document.getElementById('cal-sub').textContent=
+    calFilter==='all'?'全体':calFilter==='medicine'?'薬のみ':'サプリのみ';
+  const firstDay=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const todayStr=todayKey();
+  const DOW=['日','月','火','水','木','金','土'];
+  let html=`<div class="cal-dow">${DOW.map(d=>`<span>${d}</span>`).join('')}</div><div class="cal-days">`;
+  for (let i=0;i<firstDay;i++) html+=`<div class="cal-day empty"></div>`;
+  for (let d=1;d<=daysInMonth;d++) {
+    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday=dateStr===todayStr;
+    const isFuture=dateStr>todayStr;
+    let dot='';
+    if (!isFuture) {
+      const st=getDayStatus(dateStr);
+      if (st==='all')    dot='✅';
+      else if (st==='partial') dot='⚠️';
+      else if (st==='none')    dot='❌';
+    } else dot='─';
+    html+=`<div class="cal-day${isToday?' today':''}" onclick="openDayDetail('${dateStr}')">
+      <div class="cal-dn">${d}</div>
+      <div class="cal-dot">${dot}</div>
+    </div>`;
+  }
+  html+=`</div>`;
+  document.getElementById('cal-grid').innerHTML=html;
+}
+
+function openDayDetail(dateStr) {
+  const d=new Date(dateStr+'T00:00:00');
+  const lbl=d.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+  document.getElementById('dd-title').textContent=lbl;
+  const meds=S.medicines.filter(m=>{
+    if (m.active===false) return false;
+    if (calFilter==='medicine') return m.category==='medicine';
+    if (calFilter==='supplement') return m.category==='supplement';
+    return true;
+  });
+  let html='';
+  if (!meds.length) {
+    html='<div style="color:var(--text3);text-align:center;padding:16px">データなし</div>';
+  } else {
+    meds.forEach(m=>{
+      m.timings.forEach(t=>{
+        const taken=isTaken(m.id,t,dateStr);
+        const icon=m.category==='supplement'?'🌿':'💊';
+        html+=`<div class="status-item">
+          <div class="status-check ${taken?'taken':'missed'}">${taken?'✓':'✗'}</div>
+          <div class="status-name">${icon} ${m.name}</div>
+          <div class="status-timing">${TL[t]}</div>
+        </div>`;
+      });
+    });
+  }
+  document.getElementById('dd-body').innerHTML=
+    `<div class="status-date">${calFilter==='all'?'全体':calFilter==='medicine'?'💊 薬':'🌿 サプリ'}</div>`+html;
+  document.getElementById('ov-daydetail').classList.add('open');
+}
+
+// ═══════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════
+function renderSettings() {
+  renderDashTags();
+  renderSoundList();
+  renderSceneAssign();
+  renderEmailStatus();
+}
+
+// ── 確認タグ ──
+function renderDashTags() {
+  const el=document.getElementById('dash-tag-list');
+  if (!S.dashTags.length) {
+    el.innerHTML=`<div style="padding:12px 16px;font-size:13px;color:var(--text2)">
+      まだ登録されていません。タグを登録するとタッチで今日の服薬状況を確認できます。</div>`;
+    return;
+  }
+  el.innerHTML=S.dashTags.map((t,i)=>`
+    <div class="dash-tag-item">
+      <div style="font-size:18px">📋</div>
+      <div style="flex:1">
+        <div class="dash-tag-name">${t.name}</div>
+        <div class="dash-tag-id">ID: …${t.id.slice(-8)}</div>
+      </div>
+      <button class="del-btn" onclick="delDashTag(${i})">✕</button>
+    </div>`).join('');
+}
+
+async function startDashTagReg() {
+  if (!('NDEFReader' in window)) {
+    banner('⚠ Android Chrome が必要です','ng'); return;
+  }
+  dashTagRegMode=true;
+  banner('📡 確認タグにタッチしてください','inf');
+  try {
+    const reader=new NDEFReader(); await reader.scan();
+    reader.addEventListener('reading',({serialNumber})=>{
+      const name=prompt('このタグの名前を入力してください（例：玄関タグ）')||'タグ'+(S.dashTags.length+1);
+      S.dashTags.push({id:serialNumber, name});
+      save(); dashTagRegMode=false;
+      banner('✓ 確認タグを登録しました','ok');
+      renderDashTags();
+    },{once:true});
+  } catch(e) { dashTagRegMode=false; banner('NFCエラー: '+e.message,'ng'); }
+}
+
+function delDashTag(i) {
+  if (!confirm('このタグを削除しますか？')) return;
+  S.dashTags.splice(i,1); save(); renderDashTags();
+}
+
+// ── 音声一覧 ──
+function renderSoundList() {
+  const el=document.getElementById('sound-list');
+  if (!S.customSounds.length) {
+    el.innerHTML=`<div style="padding:12px 16px;font-size:13px;color:var(--text2)">
+      カスタム音声はまだ登録されていません。</div>`;
+    return;
+  }
+  el.innerHTML=S.customSounds.map(s=>`
+    <div class="sound-item">
+      <div class="sound-icon">${s.type==='recording'?'🎤':'🎵'}</div>
+      <div style="flex:1">
+        <div class="sound-name">${s.name}</div>
+        <div class="sound-sub">${s.type==='recording'?'録音':'MP3'} · ${s.duration.toFixed(1)}秒</div>
+      </div>
+      <div class="sound-actions">
+        <button class="del-btn" style="background:var(--primary-dim);color:var(--primary-d)"
+          onclick="previewSound('${s.id}')">▶</button>
+        <button class="del-btn" onclick="delSound('${s.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function delSound(id) {
+  if (!confirm('この音声を削除しますか？')) return;
+  S.customSounds=S.customSounds.filter(s=>s.id!==id);
+  // 場面割り当てのリセット
+  Object.keys(S.soundAssign).forEach(k=>{
+    if (S.soundAssign[k]===id) S.soundAssign[k]='default-chime';
+  });
+  save(); renderSoundList(); renderSceneAssign();
+}
+
+function previewSound(id) {
+  const s=S.customSounds.find(x=>x.id===id);
+  if (!s) return;
+  const audio=new Audio(s.dataUrl);
+  if (s.type==='mp3'&&s.startTime) { audio.currentTime=s.startTime; }
+  audio.play();
+  if (s.duration) setTimeout(()=>audio.pause(), s.duration*1000);
+}
+
+// ── 場面割り当て ──
+function renderSceneAssign() {
+  const el=document.getElementById('scene-assign-list');
+  const allSounds=[...DEFAULT_SOUNDS,...S.customSounds.map(s=>({id:s.id,name:s.name}))];
+  el.innerHTML=SCENES.map(sc=>`
+    <div class="scene-row">
+      <span class="scene-lbl">${sc.label}</span>
+      <select class="scene-sel" onchange="setSceneAssign('${sc.key}',this.value)">
+        ${allSounds.map(s=>`<option value="${s.id}" ${S.soundAssign[sc.key]===s.id?'selected':''}>${s.name}</option>`).join('')}
+      </select>
+    </div>`).join('');
+}
+
+function setSceneAssign(key, val) {
+  S.soundAssign[key]=val; save();
+}
+
+// ── メール状態 ──
+function renderEmailStatus() {
+  const cfg=S.emailConfig;
+  const isSet=cfg.serviceId&&cfg.templateId&&cfg.publicKey;
+  document.getElementById('email-status-txt').textContent=
+    isSet?`設定済み（通知先: ${cfg.recipients.length}件）`:'未設定';
+  const badge=document.getElementById('email-status-badge');
+  badge.textContent=isSet?'設定済み':'未設定';
+  badge.className='set-badge '+(isSet?'ok':'ng');
+  const recipList=document.getElementById('recip-list');
+  recipList.style.display=isSet?'block':'none';
+  if (isSet) {
+    document.getElementById('recip-items').innerHTML=cfg.recipients.map((r,i)=>`
+      <div class="recip-item">
+        <div class="recip-info">
+          <div class="recip-name">${r.name}</div>
+          <div class="recip-email">${r.email}</div>
+        </div>
+        <button class="del-btn" onclick="delRecipient(${i})">✕</button>
+      </div>`).join('');
+  }
+}
+
+function addRecipient() {
+  const email=prompt('メールアドレスを入力してください');
+  if (!email||!email.includes('@')) { banner('⚠ 正しいメールアドレスを入力してください','ng'); return; }
+  const name=prompt('名前（例：自分、妻）')||email;
+  S.emailConfig.recipients.push({email,name});
+  save(); renderEmailStatus();
+}
+function delRecipient(i) {
+  S.emailConfig.recipients.splice(i,1); save(); renderEmailStatus();
+}
+
+// ── Email wizard ──
+let currentWizardStep=1;
+const emailNotifToggles={missed:true,complete:true,stockout:true};
+
+function openEmailSetup() {
+  currentWizardStep=1;
+  emailNotifToggles.missed=S.emailConfig.notify?.missed!==false;
+  emailNotifToggles.complete=S.emailConfig.notify?.complete!==false;
+  emailNotifToggles.stockout=S.emailConfig.notify?.stockout!==false;
+  // pre-fill
+  document.getElementById('ej-service').value=S.emailConfig.serviceId||'';
+  document.getElementById('ej-template').value=S.emailConfig.templateId||'';
+  document.getElementById('ej-pubkey').value=S.emailConfig.publicKey||'';
+  document.getElementById('ej-email1').value=S.emailConfig.recipients[0]?.email||'';
+  document.getElementById('ej-email2').value=S.emailConfig.recipients[1]?.email||'';
+  ['missed','complete','stockout'].forEach(k=>{
+    document.getElementById('tog-'+k).classList.toggle('on',emailNotifToggles[k]);
+  });
+  wsShow(1); updateStepDots(1);
+  document.getElementById('ov-email').classList.add('open');
+}
+
+function wsNext(step) {
+  if (step===4) {
+    const svc=document.getElementById('ej-service').value.trim();
+    const tpl=document.getElementById('ej-template').value.trim();
+    const pub=document.getElementById('ej-pubkey').value.trim();
+    if (!svc||!tpl||!pub) { banner('⚠ 全項目を入力してください','ng'); return; }
+  }
+  wsShow(step); updateStepDots(step); currentWizardStep=step;
+}
+
+function wsShow(step) {
+  for (let i=1;i<=4;i++) {
+    const el=document.getElementById('ws-'+i);
+    if (el) el.classList.toggle('active',i===step);
+  }
+}
+function updateStepDots(step) {
+  document.getElementById('step-dots').innerHTML=
+    [1,2,3,4].map(i=>`<div class="step-dot${i===step?' on':''}"></div>`).join('');
+}
+function togEmailNotif(key) {
+  emailNotifToggles[key]=!emailNotifToggles[key];
+  document.getElementById('tog-'+key).classList.toggle('on',emailNotifToggles[key]);
+}
+function saveEmailConfig() {
+  const svc=document.getElementById('ej-service').value.trim();
+  const tpl=document.getElementById('ej-template').value.trim();
+  const pub=document.getElementById('ej-pubkey').value.trim();
+  if (!svc||!tpl||!pub) { banner('⚠ IDを入力してください','ng'); return; }
+  const recips=[];
+  const e1=document.getElementById('ej-email1').value.trim();
+  const e2=document.getElementById('ej-email2').value.trim();
+  if (e1) recips.push({email:e1,name:'自分'});
+  if (e2) recips.push({email:e2,name:'家族'});
+  S.emailConfig={serviceId:svc,templateId:tpl,publicKey:pub,
+    recipients:recips,notify:{...emailNotifToggles}};
+  save(); closeOv('email');
+  banner('✓ メール通知の設定を保存しました','ok');
+  renderEmailStatus();
+  // EmailJS初期化
+  if (window.emailjs) emailjs.init({publicKey:pub});
+}
+
+// ── EMAIL SEND ──
+function sendEmail(type, message) {
+  const cfg=S.emailConfig;
+  if (!cfg.serviceId||!cfg.templateId||!cfg.publicKey) return;
+  if (!cfg.notify?.[type]) return;
+  if (!cfg.recipients.length) return;
+  if (!window.emailjs) return;
+  try { emailjs.init({publicKey:cfg.publicKey}); } catch(e){}
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
+  const timeStr=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  cfg.recipients.forEach(r=>{
+    try {
+      emailjs.send(cfg.serviceId, cfg.templateId, {
+        to_email:r.email, to_name:r.name,
+        subject:`【くすりログ】${type==='missed'?'飲み忘れ通知':type==='complete'?'服薬完了報告':'在庫切れアラート'}`,
+        message:`${message}\n\n${dateStr} ${timeStr}\n\nくすりログより`,
+        date:dateStr, time:timeStr
+      });
+    } catch(e){}
+  });
+}
+
+// ═══════════════════════════════════════════
+//  AUDIO SYSTEM
+// ═══════════════════════════════════════════
+function playScene(scene) {
+  const id=S.soundAssign?.[scene]||'default-chime';
+  if (id.startsWith('default-')) {
+    playDefaultSound(id.replace('default-',''));
+  } else {
+    const s=S.customSounds.find(x=>x.id===id);
+    if (s) {
+      const a=new Audio(s.dataUrl);
+      if (s.type==='mp3'&&s.startTime) a.currentTime=s.startTime;
+      a.play().catch(()=>{});
+      if (s.duration) setTimeout(()=>{try{a.pause();}catch(e){}},s.duration*1000+500);
+    }
+  }
+}
+
+function playDefaultSound(type) {
+  try {
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    switch(type) {
+      case 'chime':   synthChime(ctx);   break;
+      case 'fanfare': synthFanfare(ctx); break;
+      case 'alert':   synthAlert(ctx);   break;
+      case 'warning': synthWarning(ctx); break;
+      case 'info':    synthInfo(ctx);    break;
+      default:        synthChime(ctx);
+    }
+  } catch(e){}
+}
+
+function synthChime(ctx) {
+  const freqs=[523,659,784];
+  freqs.forEach((f,i)=>{
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value=f; o.type='sine';
+    const t=ctx.currentTime+i*0.15;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(0.3,t+0.05);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
+    o.start(t); o.stop(t+0.6);
+  });
+}
+function synthFanfare(ctx) {
+  [[523,.0],[659,.15],[784,.3],[1047,.45]].forEach(([f,d])=>{
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value=f; o.type='square';
+    const t=ctx.currentTime+d;
+    g.gain.setValueAtTime(0.2,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+    o.start(t); o.stop(t+0.3);
+  });
+}
+function synthAlert(ctx) {
+  [0,0.35].forEach(d=>{
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value=880; o.type='sine';
+    const t=ctx.currentTime+d;
+    g.gain.setValueAtTime(0.3,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+    o.start(t); o.stop(t+0.25);
+  });
+}
+function synthWarning(ctx) {
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  o.frequency.setValueAtTime(440,ctx.currentTime);
+  o.frequency.linearRampToValueAtTime(220,ctx.currentTime+0.5);
+  o.type='sawtooth';
+  g.gain.setValueAtTime(0.2,ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
+  o.start(ctx.currentTime); o.stop(ctx.currentTime+0.5);
+}
+function synthInfo(ctx) {
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  o.frequency.value=698; o.type='sine';
+  g.gain.setValueAtTime(0,ctx.currentTime);
+  g.gain.linearRampToValueAtTime(0.25,ctx.currentTime+0.05);
+  g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
+  o.start(ctx.currentTime); o.stop(ctx.currentTime+0.4);
+}
+
+// ── 録音 ──
+function openAudioModal(presetType) {
+  showRecView(presetType||'type');
+  document.getElementById('ov-audio').classList.add('open');
+}
+
+function showRecView(view) {
+  ['rv-type','rv-recording','rv-mp3','rv-review'].forEach(id=>{
+    const el=document.getElementById(id);
+    if (el) el.classList.toggle('active',id==='rv-'+view);
+  });
+  document.getElementById('audio-title').textContent=
+    view==='type'?'音声を登録する':
+    view==='recording'?'録音する':
+    view==='mp3'?'MP3を登録する':'確認してください';
+}
+
+function retake() {
+  if (recType==='recording') showRecView('recording');
+  else { showRecView('mp3'); document.getElementById('rv-mp3-trim').style.display='none'; }
+}
+
+// ── 録音開始 ──
+async function startRecording() {
+  recType='recording';
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    micStream=stream;
+    const actx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=actx.createMediaStreamSource(stream);
+    volAnalyser=actx.createAnalyser();
+    volAnalyser.fftSize=32;
+    src.connect(volAnalyser);
+
+    recChunks=[];
+    recMediaRecorder=new MediaRecorder(stream);
+    recMediaRecorder.ondataavailable=e=>recChunks.push(e.data);
+    recMediaRecorder.onstop=onRecordingStop;
+    recMediaRecorder.start();
+
+    recCountdown=10;
+    document.getElementById('rv-rec-idle').style.display='none';
+    document.getElementById('rv-rec-active').style.display='block';
+    document.getElementById('rec-timer').textContent='10';
+
+    // vol bars setup
+    const meter=document.getElementById('vol-meter');
+    meter.innerHTML='';
+    volBars=[];
+    for (let i=0;i<20;i++) {
+      const b=document.createElement('div');
+      b.className='vol-bar';
+      b.style.height='2px';
+      meter.appendChild(b); volBars.push(b);
+    }
+    animVol();
+    recTimer=setInterval(()=>{
+      recCountdown--;
+      document.getElementById('rec-timer').textContent=String(recCountdown).padStart(2,'0');
+      if (recCountdown<=0) stopRecording();
+    },1000);
+  } catch(e) { banner('⚠ マイクへのアクセスを許可してください','ng'); }
+}
+
+function animVol() {
+  if (!volAnalyser) return;
+  const data=new Uint8Array(volAnalyser.frequencyBinCount);
+  volAnalyser.getByteFrequencyData(data);
+  volBars.forEach((b,i)=>{
+    const val=data[i]||0;
+    const h=Math.max(2,Math.round(val/255*36));
+    b.style.height=h+'px';
+    b.style.background=val>180?'var(--rose)':val>100?'var(--amber)':'var(--teal)';
+  });
+  volAnimId=requestAnimationFrame(animVol);
+}
+
+function stopRecording() {
+  if (recTimer) { clearInterval(recTimer); recTimer=null; }
+  if (volAnimId) { cancelAnimationFrame(volAnimId); volAnimId=null; }
+  if (recMediaRecorder&&recMediaRecorder.state!=='inactive') recMediaRecorder.stop();
+  if (micStream) { micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  document.getElementById('rv-rec-idle').style.display='block';
+  document.getElementById('rv-rec-active').style.display='none';
+}
+
+function onRecordingStop() {
+  const blob=new Blob(recChunks,{type:'audio/webm'});
+  const duration=10-recCountdown;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    recDataUrl=reader.result;
+    const owner=document.getElementById('rec-owner').value.trim()||'録音';
+    document.getElementById('rv-name').textContent=owner;
+    reviewAudio=new Audio(recDataUrl);
+    showRecView('review');
+  };
+  reader.readAsDataURL(blob);
+}
+
+function playReview() {
+  if (!reviewAudio) return;
+  reviewAudio.currentTime=0;
+  reviewAudio.play().catch(()=>{});
+}
+
+function saveSound() {
+  const isRec=recType==='recording';
+  const nameEl=isRec?'rec-owner':'mp3-owner';
+  const name=document.getElementById(nameEl).value.trim()||(isRec?'録音':'MP3');
+  const dataUrl=isRec?recDataUrl:mp3DataUrl;
+  if (!dataUrl) { banner('⚠ 音声データがありません','ng'); return; }
+  const duration=isRec?(10-recCountdown):Math.min(15,mp3TotalDuration-mp3StartTime);
+  const sound={
+    id:uid(), name, type:isRec?'recording':'mp3',
+    dataUrl, duration,
+    startTime:isRec?0:mp3StartTime
+  };
+  // 容量チェック
+  if (dataUrl.length>3*1024*1024) {
+    banner('⚠ ファイルサイズが大きすぎます（3MB以下）','ng'); return;
+  }
+  S.customSounds.push(sound);
+  save(); closeOv('audio');
+  banner(`✓ 「${name}」を登録しました`,'ok');
+  renderSoundList(); renderSceneAssign();
+}
+
+// ── MP3 ──
+function onMp3Selected() {
+  const file=document.getElementById('mp3-file').files[0];
+  if (!file) return;
+  if (file.size>5*1024*1024) { banner('⚠ 5MB以下のファイルを選択してください','ng'); return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    mp3DataUrl=e.target.result;
+    const audio=new Audio(mp3DataUrl);
+    audio.onloadedmetadata=()=>{
+      mp3TotalDuration=audio.duration;
+      mp3StartTime=0;
+      document.getElementById('mp3-filename').textContent=file.name;
+      document.getElementById('mp3-duration').textContent=
+        `長さ: ${Math.floor(mp3TotalDuration/60)}分${Math.floor(mp3TotalDuration%60)}秒`;
+      const tr=document.getElementById('trim-start');
+      tr.max=Math.max(0,mp3TotalDuration-1).toFixed(1);
+      tr.value=0;
+      document.getElementById('trim-hint').textContent=
+        `開始: 0:00 〜 ${Math.min(15,mp3TotalDuration).toFixed(0)}秒間を使用`;
+      document.getElementById('rv-mp3-trim').style.display='block';
+      // preview for review
+      reviewAudio=new Audio(mp3DataUrl);
+    };
+    audio.load();
+  };
+  reader.readAsDataURL(file);
+}
+
+function onTrimChange() {
+  const val=parseFloat(document.getElementById('trim-start').value);
+  mp3StartTime=val;
+  const endSec=Math.min(val+15, mp3TotalDuration);
+  const startFmt=`${Math.floor(val/60)}:${String(Math.floor(val%60)).padStart(2,'0')}`;
+  const useSec=Math.round(endSec-val);
+  document.getElementById('trim-hint').textContent=`開始: ${startFmt} 〜 ${useSec}秒間を使用`;
+  if (reviewAudio) reviewAudio.currentTime=val;
+}
+
+function previewMp3() {
+  if (!mp3DataUrl) return;
+  const a=new Audio(mp3DataUrl);
+  a.currentTime=mp3StartTime;
+  a.play().catch(()=>{});
+  setTimeout(()=>{try{a.pause();}catch(e){}},15000);
+  // go to review
+  const owner=document.getElementById('mp3-owner').value.trim()||'MP3';
+  document.getElementById('rv-name').textContent=owner;
+  reviewAudio=new Audio(mp3DataUrl);
+  reviewAudio.currentTime=mp3StartTime;
+  recType='mp3';
+  showRecView('review');
+}
+
+// ═══════════════════════════════════════════
+//  REORDER CHECK
+// ═══════════════════════════════════════════
+function checkReorder(m) {
+  if (!m.stockManaged||m.rem==null||m.reorder==null) return;
+  const unit=m.unit||'錠';
+  if (m.rem<=0) {
+    playScene('onStockOut');
+    banner(`🚨 ${m.name} 在庫切れ！発注してください`,'warn');
+    pushNotif(`🚨 ${m.name} 在庫切れ`,`残量0${unit} — 今すぐ発注が必要です`,'zero-'+m.id);
+    sendEmail('stockout',`【在庫切れ】${m.name} の在庫が0${unit}になりました。`);
+  } else if (m.rem<=m.reorder) {
+    banner(`⚠ ${m.name} 発注点以下（残${m.rem}${unit}）`,'warn');
+    pushNotif(`⚠ ${m.name} 残量わずか`,`残り${m.rem}${unit} — 発注点(${m.reorder})以下`,'ro-'+m.id);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  NOTIFICATIONS
+// ═══════════════════════════════════════════
+function banner(msg, type) {
+  const el=document.getElementById('banner');
+  el.textContent=msg; el.className='banner '+type;
+  if (bannerTimer) clearTimeout(bannerTimer);
+  bannerTimer=setTimeout(()=>el.className='banner',3500);
+}
+async function reqNotif() {
+  if ('Notification' in window&&Notification.permission==='default')
+    await Notification.requestPermission();
+}
+function pushNotif(title, body, tag) {
+  if ('Notification' in window&&Notification.permission==='granted')
+    new Notification(title,{body,tag});
+}
+function checkMissed() {
+  if (!('Notification' in window)||Notification.permission!=='granted') return;
+  const now=new Date(), h=now.getHours(), today=todayKey();
+  S.medicines.filter(m=>m.active!==false).forEach(m=>{
+    m.timings.forEach(t=>{
+      if (h>=TW[t][1]&&!isTaken(m.id,t,today)) {
+        playScene('onMissed');
+        pushNotif('💊 飲み忘れ注意！',
+          `${m.name}（${TL[t]}）がまだ記録されていません`,
+          m.id+'-'+t+'-'+today);
+        sendEmail('missed',`【飲み忘れ】${m.name}（${TL[t]}）がまだ記録されていません。`);
+      }
+    });
+    checkReorder(m);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  MED MODAL
+// ═══════════════════════════════════════════
+function resetMainModal() {
+  editId=null; pendingTag=null; linkingNFC=false;
+  ['in-name','in-note','in-init','in-reorder','in-url'].forEach(id=>
+    document.getElementById(id).value='');
+  document.getElementById('in-dose').value='1';
+  document.getElementById('in-unit').value='錠';
+  document.querySelectorAll('.t-chip').forEach(c=>c.classList.remove('on'));
+  setType('medicine'); useStock=false;
+  document.getElementById('tog-stock').classList.remove('on');
+  document.getElementById('stock-setup').style.display='none';
+  document.getElementById('nfc-link').classList.remove('linked');
+  document.getElementById('nfc-link-lbl').textContent='タグをタッチして連携';
+  document.getElementById('nfc-link-st').textContent='未連携';
+  document.getElementById('nfc-url-hint').innerHTML='';
+}
+function openAdd() {
+  resetMainModal();
+  document.getElementById('main-title').textContent='薬・サプリを追加';
+  document.getElementById('ov-main').classList.add('open');
+}
+function openEdit(id) {
+  const m=S.medicines.find(x=>x.id===id); if (!m) return;
+  resetMainModal(); editId=id; pendingTag=m.nfcTag||null;
+  document.getElementById('main-title').textContent='編集';
+  document.getElementById('in-name').value=m.name;
+  document.getElementById('in-dose').value=m.dosagePerTake;
+  document.getElementById('in-unit').value=m.unit||'錠';
+  document.getElementById('in-note').value=m.note||'';
+  document.getElementById('in-init').value=m.initStock||'';
+  document.getElementById('in-reorder').value=m.reorder||'';
+  document.getElementById('in-url').value=m.purchaseUrl||'';
+  setType(m.category);
+  m.timings.forEach(t=>{
+    const c=document.querySelector(`.t-chip[data-t="${t}"]`);
+    if(c) c.classList.add('on');
+  });
+  useStock=m.stockManaged||false;
+  document.getElementById('tog-stock').classList.toggle('on',useStock);
+  document.getElementById('stock-setup').style.display=useStock?'block':'none';
+  if (m.nfcTag) {
+    document.getElementById('nfc-link').classList.add('linked');
+    document.getElementById('nfc-link-lbl').textContent='タグ連携済み';
+    document.getElementById('nfc-link-st').textContent='…'+m.nfcTag.slice(-6);
+    updateNfcUrlHint();
+  }
+  document.getElementById('ov-main').classList.add('open');
+}
+function setType(t) {
+  curType=t;
+  document.getElementById('ty-med').className='type-chip medicine'+(t==='medicine'?' on':'');
+  document.getElementById('ty-sup').className='type-chip supplement'+(t==='supplement'?' on':'');
+}
+function togT(btn) { btn.classList.toggle('on'); }
+function togStock() {
+  useStock=!useStock;
+  document.getElementById('tog-stock').classList.toggle('on',useStock);
+  document.getElementById('stock-setup').style.display=useStock?'block':'none';
+}
+function saveMed() {
+  const name=document.getElementById('in-name').value.trim();
+  if (!name) { banner('⚠ 名前を入力してください','ng'); return; }
+  const timings=[...document.querySelectorAll('.t-chip.on')].map(c=>c.dataset.t);
+  if (!timings.length) { banner('⚠ タイミングを選択してください','ng'); return; }
+  const dosagePerTake=parseFloat(document.getElementById('in-dose').value)||1;
+  const unit=document.getElementById('in-unit').value;
+  const note=document.getElementById('in-note').value.trim();
+  const initRaw=document.getElementById('in-init').value;
+  const reorderRaw=document.getElementById('in-reorder').value;
+  const urlRaw=document.getElementById('in-url').value.trim();
+  const initStock=useStock&&initRaw?parseInt(initRaw):null;
+  const reorder=useStock&&reorderRaw?parseInt(reorderRaw):null;
+  if (editId) {
+    const m=S.medicines.find(x=>x.id===editId);
+    if (m) {
+      const prevInit=m.initStock;
+      Object.assign(m,{name,category:curType,timings,dosagePerTake,unit,note,
+        stockManaged:useStock,reorder,purchaseUrl:urlRaw||null,nfcTag:pendingTag,
+        initStock:initStock??m.initStock,
+        rem:(initStock&&initStock!==prevInit)?initStock:m.rem});
+    }
+    banner('✓ 更新しました','ok');
+  } else {
+    S.medicines.push({id:uid(),nfcTag:pendingTag,name,category:curType,
+      timings,dosagePerTake,unit,note,stockManaged:useStock,initStock,rem:initStock,
+      reorder,purchaseUrl:urlRaw||null,startDate:todayKey(),active:true});
+    banner(`✓ ${name} を追加しました`,'ok');
+  }
+  save(); closeOv('main'); renderMeds(); renderToday();
+}
+
+// ═══════════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════════
+function ovTap(name, e) {
+  if (e.target===document.getElementById('ov-'+name)) closeOv(name);
+}
+function closeOv(name) {
+  document.getElementById('ov-'+name).classList.remove('open');
+  if (name==='main') linkingNFC=false;
+  if (name==='audio') {
+    stopRecording();
+    showRecView('type');
+  }
+}
+
+// ═══════════════════════════════════════════
+//  URL PARAMS (?nfc=tagId)
+// ═══════════════════════════════════════════
+function handleUrlParams() {
+  const params=new URLSearchParams(location.search);
+  const tagId=params.get('nfc');
+  if (!tagId) return;
+  const scanBtn=document.querySelectorAll('.nb')[1];
+  showPage('scan',scanBtn);
+  setTimeout(()=>handleScan(decodeURIComponent(tagId)),300);
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+load();
+renderToday();
+document.getElementById('today-date').textContent=
+  new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+document.getElementById('fab').style.display='none';
+reqNotif();
+handleUrlParams();
+if (S.emailConfig?.publicKey) {
+  try { emailjs.init({publicKey:S.emailConfig.publicKey}); } catch(e){}
+}
+setInterval(checkMissed, 10*60*1000);
+</script>
+</body>
+</html>
