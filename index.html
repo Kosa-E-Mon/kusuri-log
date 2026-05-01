@@ -6,6 +6,8 @@
 <title>くすりログ</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root{
   --bg:#0F172A;--bg2:#1E293B;--card:#FFFFFF;--card2:#F8FAFF;
@@ -552,6 +554,57 @@ canvas#waveCanvas{display:none;}
       </div>
     </div>
 
+
+    <!-- クラウド同期 -->
+    <div class="set-section">
+      <div class="set-sec-title">☁️ クラウド同期（Google Drive）</div>
+      <div id="cloud-status-row" class="set-row">
+        <div class="set-row-icon">🔗</div>
+        <div class="set-row-body">
+          <div class="set-row-lbl" id="cloud-status-lbl">未接続</div>
+          <div class="set-row-sub" id="cloud-status-sub">Googleアカウントと連携するとデータを保護できます</div>
+        </div>
+        <div class="set-row-action">
+          <span id="cloud-status-badge" class="set-badge ng">未接続</span>
+        </div>
+      </div>
+      <div id="cloud-setup-area" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">
+        <div id="cloud-clientid-row">
+          <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Google OAuth Client ID</div>
+          <input id="in-client-id" type="text" placeholder="xxxxx.apps.googleusercontent.com"
+            style="width:100%;padding:10px 12px;border-radius:var(--rs);border:1.5px solid var(--border);
+            font-family:inherit;font-size:13px;color:var(--text);background:var(--card2);outline:none;"
+            oninput="S.cloudConfig.clientId=this.value;localStorage.setItem('kl_v4',JSON.stringify(S));">
+          <div style="font-size:11px;color:var(--text3);margin-top:5px;">
+            ※ Google Cloud Console で取得した OAuth 2.0 クライアントID を入力してください
+          </div>
+        </div>
+        <button class="btn btn-p" id="cloud-signin-btn" onclick="googleSignIn()">
+          <span style="font-size:16px;">G</span>&nbsp; Googleでログイン
+        </button>
+        <button class="btn" id="cloud-signout-btn" onclick="googleSignOut()" style="display:none">
+          ログアウト
+        </button>
+        <button class="btn btn-teal" id="cloud-sync-btn" onclick="manualSyncToCloud()" style="display:none">
+          ☁ 今すぐ同期
+        </button>
+      </div>
+      <div id="cloud-help-row" style="padding:0 16px 14px;">
+        <details style="font-size:12px;color:var(--text2);">
+          <summary style="cursor:pointer;font-weight:700;color:var(--primary);">設定方法を見る</summary>
+          <div style="margin-top:8px;line-height:1.8;background:var(--card2);padding:10px 12px;border-radius:var(--rs);">
+            1. <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--primary)">Google Cloud Console</a> を開く<br>
+            2. プロジェクトを作成 → APIとサービス → 認証情報<br>
+            3. 「認証情報を作成」→「OAuth 2.0 クライアントID」<br>
+            4. アプリケーションの種類：<strong>ウェブアプリケーション</strong><br>
+            5. 「承認済みの JavaScript 生成元」にこのページの URL を追加<br>
+            6. 「Google Drive API」を有効化<br>
+            7. 発行された Client ID を上の欄に貼り付け
+          </div>
+        </details>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -944,6 +997,12 @@ let S = {
     serviceId:'', templateId:'', publicKey:'',
     recipients:[],
     notify:{missed:true, complete:true, stockout:true}
+  },
+  cloudConfig:{
+    clientId:'',
+    userEmail:null,
+    userName:null,
+    lastSync:null
   }
 };
 
@@ -973,7 +1032,7 @@ let emailNotifState={missed:true,complete:true,stockout:true};
 const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
 const todayKey = () => new Date().toISOString().slice(0,10);
 const save = () => {
-  try { localStorage.setItem('kl_v4', JSON.stringify(S)); }
+  try { localStorage.setItem('kl_v4', JSON.stringify(S)); scheduleSyncToCloud(); }
   catch(e) { banner('⚠ 保存容量が不足しています', 'ng'); }
 };
 function load() {
@@ -992,6 +1051,7 @@ function load() {
       serviceId:'',templateId:'',publicKey:'',
       recipients:[],notify:{missed:true,complete:true,stockout:true}
     };
+    if (!S.cloudConfig) S.cloudConfig = {clientId:'',userEmail:null,userName:null,lastSync:null};
   } catch(e) {}
 }
 
@@ -2248,6 +2308,227 @@ if (S.emailConfig?.publicKey) {
   try { emailjs.init({publicKey:S.emailConfig.publicKey}); } catch(e){}
 }
 setInterval(checkMissed, 10*60*1000);
+
+// ═══════════════════════════════════════════
+//  GOOGLE DRIVE CLOUD SYNC
+// ═══════════════════════════════════════════
+let _gapiLoaded = false, _gisLoaded = false;
+let _tokenClient = null, _driveToken = null;
+let _cloudBusy = false, _syncDebounce = null;
+const DRIVE_FILE = 'kusuri-log-v4.json';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
+
+function scheduleSyncToCloud() {
+  if (!_driveToken) return;
+  clearTimeout(_syncDebounce);
+  _syncDebounce = setTimeout(syncToCloud, 4000);
+}
+
+function renderCloudSection() {
+  const lbl = document.getElementById('cloud-status-lbl');
+  const sub = document.getElementById('cloud-status-sub');
+  const badge = document.getElementById('cloud-status-badge');
+  const signInBtn = document.getElementById('cloud-signin-btn');
+  const signOutBtn = document.getElementById('cloud-signout-btn');
+  const syncBtn = document.getElementById('cloud-sync-btn');
+  const cidRow = document.getElementById('cloud-clientid-row');
+  const cidInput = document.getElementById('in-client-id');
+  if (cidInput) cidInput.value = S.cloudConfig?.clientId || '';
+
+  if (_driveToken && S.cloudConfig?.userEmail) {
+    lbl.textContent = S.cloudConfig.userEmail;
+    const ls = S.cloudConfig.lastSync
+      ? new Date(S.cloudConfig.lastSync).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})
+      : '未同期';
+    sub.textContent = '最終同期: ' + ls;
+    badge.textContent = '接続中';
+    badge.className = 'set-badge ok';
+    signInBtn.style.display = 'none';
+    signOutBtn.style.display = 'block';
+    syncBtn.style.display = 'block';
+    cidRow.style.display = 'none';
+  } else {
+    lbl.textContent = '未接続';
+    sub.textContent = 'Googleアカウントと連携するとデータを保護できます';
+    badge.textContent = '未接続';
+    badge.className = 'set-badge ng';
+    signInBtn.style.display = 'block';
+    signOutBtn.style.display = 'none';
+    syncBtn.style.display = 'none';
+    cidRow.style.display = 'block';
+  }
+}
+
+async function _loadGapiClient() {
+  if (_gapiLoaded) return;
+  await new Promise((res, rej) => {
+    if (typeof gapi !== 'undefined') { doInit(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://apis.google.com/js/api.js';
+    s.onload = doInit; s.onerror = rej;
+    document.head.appendChild(s);
+    function doInit() {
+      gapi.load('client', async () => {
+        try {
+          await gapi.client.init({
+            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+          });
+          _gapiLoaded = true; res();
+        } catch(e) { rej(e); }
+      });
+    }
+  });
+}
+
+async function _loadGIS(clientId) {
+  if (_gisLoaded && _tokenClient) return;
+  await new Promise((res, rej) => {
+    function setup() {
+      _tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: DRIVE_SCOPE,
+        callback: _handleGoogleToken
+      });
+      _gisLoaded = true; res();
+    }
+    if (typeof google !== 'undefined' && google.accounts) { setup(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = setup; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function _handleGoogleToken(resp) {
+  if (resp.error) { banner('⚠ Google認証エラー: ' + resp.error, 'ng'); return; }
+  _driveToken = resp.access_token;
+  gapi.client.setToken({ access_token: _driveToken });
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',
+      { headers: { Authorization: 'Bearer ' + _driveToken } });
+    const info = await r.json();
+    S.cloudConfig.userEmail = info.email;
+    S.cloudConfig.userName = info.name || info.email;
+  } catch(e) {}
+  localStorage.setItem('kl_v4', JSON.stringify(S));
+  renderCloudSection();
+  await syncFromCloud();
+  banner('✓ Google Drive に接続しました', 'ok');
+}
+
+async function googleSignIn() {
+  const clientId = (S.cloudConfig?.clientId || document.getElementById('in-client-id')?.value || '').trim();
+  if (!clientId) { banner('⚠ Client IDを入力してください', 'ng'); return; }
+  S.cloudConfig.clientId = clientId;
+  localStorage.setItem('kl_v4', JSON.stringify(S));
+  try {
+    await _loadGapiClient();
+    await _loadGIS(clientId);
+    _tokenClient.requestAccessToken({ prompt: 'consent' });
+  } catch(e) {
+    banner('⚠ Google APIの読み込みに失敗しました', 'ng');
+    console.error(e);
+  }
+}
+
+function googleSignOut() {
+  if (_driveToken && typeof google !== 'undefined')
+    google.accounts.oauth2.revoke(_driveToken, () => {});
+  _driveToken = null;
+  S.cloudConfig.userEmail = null;
+  S.cloudConfig.userName = null;
+  localStorage.setItem('kl_v4', JSON.stringify(S));
+  renderCloudSection();
+  banner('Googleアカウントから切断しました', 'inf');
+}
+
+async function _findDriveFile() {
+  gapi.client.setToken({ access_token: _driveToken });
+  const r = await gapi.client.drive.files.list({
+    spaces: 'appDataFolder',
+    fields: 'files(id,name,modifiedTime)',
+    q: `name='${DRIVE_FILE}'`
+  });
+  return r.result.files?.[0] || null;
+}
+
+async function syncToCloud() {
+  if (!_driveToken || _cloudBusy) return;
+  _cloudBusy = true;
+  try {
+    const payload = JSON.stringify({ ...S, _syncedAt: new Date().toISOString() });
+    const file = await _findDriveFile();
+    if (file) {
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${file.id}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + _driveToken, 'Content-Type': 'application/json' },
+        body: payload
+      });
+    } else {
+      const meta = { name: DRIVE_FILE, parents: ['appDataFolder'] };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+      form.append('file', new Blob([payload], { type: 'application/json' }));
+      await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + _driveToken },
+        body: form
+      });
+    }
+    S.cloudConfig.lastSync = new Date().toISOString();
+    localStorage.setItem('kl_v4', JSON.stringify(S));
+    renderCloudSection();
+  } catch(e) { console.warn('Cloud sync error:', e); }
+  finally { _cloudBusy = false; }
+}
+
+async function syncFromCloud() {
+  if (!_driveToken) return;
+  try {
+    const file = await _findDriveFile();
+    if (!file) { await syncToCloud(); return; }
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
+      headers: { Authorization: 'Bearer ' + _driveToken }
+    });
+    if (!r.ok) throw new Error('fetch failed');
+    const cloud = await r.json();
+    const localTime = S._syncedAt ? new Date(S._syncedAt) : new Date(0);
+    const cloudTime = cloud._syncedAt ? new Date(cloud._syncedAt) : new Date(0);
+    if (cloudTime > localTime) {
+      const saved = { cloudConfig: S.cloudConfig };
+      S = { ...cloud, ...saved };
+      if (!S.lots) S.lots=[];
+      if (!S.dashTags) S.dashTags=[];
+      if (!S.customSounds) S.customSounds=[];
+      if (!S.soundAssign) S.soundAssign={onRecord:'default-chime',onComplete:'default-fanfare',onMissed:'default-alert',onStockOut:'default-warning',onDashScan:'default-info'};
+      if (!S.emailConfig) S.emailConfig={serviceId:'',templateId:'',publicKey:'',recipients:[],notify:{missed:true,complete:true,stockout:true}};
+      localStorage.setItem('kl_v4', JSON.stringify(S));
+      renderToday(); renderMeds();
+      banner('☁ クラウドからデータを復元しました', 'ok');
+    } else {
+      await syncToCloud();
+    }
+  } catch(e) { console.warn('Cloud load error:', e); }
+}
+
+async function manualSyncToCloud() {
+  banner('☁ 同期中...', 'inf');
+  await syncToCloud();
+  if (S.cloudConfig.lastSync) banner('✓ 同期完了', 'ok');
+}
+
+// Auto re-auth if token exists from previous session
+window.addEventListener('load', () => {
+  if (S.cloudConfig?.clientId && S.cloudConfig?.userEmail) {
+    // Try silent re-auth
+    _loadGapiClient().then(() => _loadGIS(S.cloudConfig.clientId)).then(() => {
+      _tokenClient.requestAccessToken({ prompt: '' });
+    }).catch(() => {});
+  }
+  renderCloudSection();
+});
+
+
 </script>
 </body>
 </html>
