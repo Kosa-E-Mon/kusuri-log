@@ -186,22 +186,24 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   background:transparent;color:rgba(255,255,255,.5);cursor:pointer;
   font-family:inherit;font-size:11px;font-weight:700;text-align:center;transition:all .15s;}
 .cal-f.on{background:var(--primary);border-color:var(--primary);color:white;}
-.cal-grid-wrap{padding:0 16px 8px;}
-.cal-grid{background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-md);}
+.cal-grid-wrap{padding:0 12px 8px;}
+.cal-grid{background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-md);
+  width:100%;}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);
   background:var(--card2);border-bottom:1px solid var(--border);}
-.cal-dow span{text-align:center;padding:8px 0;font-size:11px;font-weight:800;color:var(--text2);}
-.cal-days{display:grid;grid-template-columns:repeat(7,1fr);}
-.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;cursor:pointer;gap:2px;border:1px solid var(--border);transition:background .15s;}
+.cal-dow span{text-align:center;padding:7px 0;font-size:13px;font-weight:800;color:var(--text2);}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);width:100%;}
+.cal-day{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;gap:1px;border:1px solid var(--border);transition:background .15s;
+  padding:6px 2px;min-width:0;overflow:hidden;}
 .cal-day:hover{background:var(--card2);}
 .cal-day.empty{cursor:default;}
 .cal-day.today .cal-dn{background:var(--primary);color:white;border-radius:50%;
-  width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
-.cal-dn{font-size:12px;font-weight:700;color:var(--text);}
-.cal-dot{font-size:10px;line-height:1;}
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;}
+.cal-dn{font-size:16px;font-weight:700;color:var(--text);line-height:1.2;}
+.cal-dot{font-size:13px;line-height:1;}
 .cal-legend{padding:8px 16px 4px;display:flex;gap:12px;flex-wrap:wrap;}
-.cal-leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);}
+.cal-leg-item{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text3);}
 
 /* ── SETTINGS ── */
 .settings-body{padding:14px 16px;display:flex;flex-direction:column;gap:16px;}
